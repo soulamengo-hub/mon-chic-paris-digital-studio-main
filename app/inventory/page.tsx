@@ -1,0 +1,2 @@
+import AppShell from '@/components/AppShell';import ArticleList from '@/components/ArticleList';import InventoryImport from '@/components/InventoryImport';
+export default function Page(){return <AppShell><div className="page-header"><div><p className="eyebrow">LAGER</p><h1>Lagerbestand</h1><p>Bestand suchen, prüfen und bei Bedarf aus Excel oder CSV übernehmen.</p></div></div><InventoryImport/><ArticleList inventoryMode/></AppShell>}
