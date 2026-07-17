@@ -1,4 +1,4 @@
-# MON CHIC PARIS · Digital Studio 6.4.0 MAIN
+# MON CHIC PARIS · Digital Studio 6.4.2 CI UPDATE
 
 Saubere Hauptversion für das neue zentrale GitHub-Repository.
 
@@ -22,3 +22,8 @@ Saubere Hauptversion für das neue zentrale GitHub-Repository.
 - Framework: Next.js
 - Node.js: 24.x
 - Variablen: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+
+
+## Version 6.4.2
+- sichere Artikelspeicherung durch serverseitige Feldfreigabe
+- dynamische Vorschläge aus bestehenden Artikeln für Marke, Material, Farbe und Lagerort

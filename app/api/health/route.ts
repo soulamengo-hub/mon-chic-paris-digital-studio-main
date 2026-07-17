@@ -4,6 +4,6 @@ export async function GET() {
   return NextResponse.json({
     ok: true,
     service: 'MON CHIC PARIS · Digital Studio',
-    version: '6.4.0',
+    version: '6.4.2',
   });
 }

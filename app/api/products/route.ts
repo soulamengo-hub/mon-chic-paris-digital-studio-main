@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseConfig, supabaseHeaders } from '@/lib/supabase';
 import type { ProductInput } from '@/lib/types';
+import { sanitizeProductInput } from '@/lib/product-fields';
 
 type ProductRow = Record<string, unknown> & { id: string };
 type ImageRow = { product_id: string; public_url: string; sort_order: number };
@@ -53,7 +54,8 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as ProductInput;
+    const rawBody = await request.json();
+    const body = sanitizeProductInput(rawBody, { allowSku: true }) as ProductInput;
     if (!body.sku?.trim()) return NextResponse.json({ error: 'SKU ist erforderlich.' }, { status: 400 });
     const { url } = getSupabaseConfig();
     const response = await fetch(`${url}/rest/v1/products`, {

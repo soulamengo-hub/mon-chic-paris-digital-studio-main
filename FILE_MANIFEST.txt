@@ -9,6 +9,8 @@ RELEASE_NOTES_6.3.1.md
 RELEASE_NOTES_6.3.2.md
 RELEASE_NOTES_6.3.md
 RELEASE_NOTES_6.4.0.md
+RELEASE_NOTES_6.4.1.md
+RELEASE_NOTES_6.4.2.md
 VERIFICATION_REPORT.md
 app/ai-studio/page.tsx
 app/analytics/page.tsx
@@ -18,6 +20,7 @@ app/api/products/[id]/route.ts
 app/api/products/route.ts
 app/api/sales/route.ts
 app/api/sku/route.ts
+app/api/suggestions/route.ts
 app/articles/[id]/page.tsx
 app/articles/new/page.tsx
 app/articles/page.tsx
@@ -40,6 +43,7 @@ components/Icons.tsx
 components/InventoryImport.tsx
 components/SalesManager.tsx
 lib/catalog.ts
+lib/product-fields.ts
 lib/supabase.ts
 lib/types.ts
 next-env.d.ts

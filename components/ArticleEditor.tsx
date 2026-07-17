@@ -5,13 +5,12 @@ import { useRouter } from 'next/navigation';
 import { categories, type CategoryName } from '@/lib/catalog';
 import type { ProductRecord } from '@/lib/types';
 
-const warehouseLocations = ['Boutique','Lager A','Lager B','Schaufenster','Fotoshooting','Versand','Qualitätsprüfung','Reinigung','Retouren','Extern','Sonstiges'];
-
 export default function ArticleEditor({ id }: { id: string }) {
   const router = useRouter();
   const [item, setItem] = useState<ProductRecord | null>(null);
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
+  const [suggestions, setSuggestions] = useState({ brands: [] as string[], materials: [] as string[], colors: [] as string[], warehouses: [] as string[] });
 
   useEffect(() => {
     fetch(`/api/products/${id}`, { cache: 'no-store' })
@@ -23,6 +22,18 @@ export default function ArticleEditor({ id }: { id: string }) {
       .catch(error => setMessage(error instanceof Error ? error.message : 'Artikel konnte nicht geladen werden.'));
   }, [id]);
 
+  useEffect(() => {
+    fetch('/api/suggestions', { cache: 'no-store' })
+      .then(response => response.ok ? response.json() : Promise.reject())
+      .then(data => setSuggestions({
+        brands: Array.isArray(data.brands) ? data.brands : [],
+        materials: Array.isArray(data.materials) ? data.materials : [],
+        colors: Array.isArray(data.colors) ? data.colors : [],
+        warehouses: Array.isArray(data.warehouses) ? data.warehouses : [],
+      }))
+      .catch(() => undefined);
+  }, []);
+
   function update(key: keyof ProductRecord, value: unknown) {
     setItem(previous => previous ? { ...previous, [key]: value } : previous);
   }
@@ -31,10 +42,11 @@ export default function ArticleEditor({ id }: { id: string }) {
     if (!item) return;
     setSaving(true);
     setMessage('');
+    const { product_images: _productImages, id: _id, sku: _sku, created_at: _createdAt, updated_at: _updatedAt, ...editableFields } = item;
     const response = await fetch(`/api/products/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(item),
+      body: JSON.stringify(editableFields),
     });
     setMessage(response.ok ? 'Änderungen wurden gespeichert.' : await response.text());
     setSaving(false);
@@ -60,14 +72,14 @@ export default function ArticleEditor({ id }: { id: string }) {
       <div className="form-grid">
         <label>SKU<input value={item.sku} readOnly /><small>Nach dem ersten Speichern unveränderlich.</small></label>
         <label>Status<select value={item.status || 'Entwurf'} onChange={event => update('status', event.target.value)}><option>Entwurf</option><option>Aktiv</option><option>Reserviert</option><option>Verkauft</option><option>Archiv</option></select></label>
-        <label>Marke<input value={item.brand || ''} onChange={event => update('brand', event.target.value)} /></label>
+        <label>Marke<input list="editor-brand-suggestions" value={item.brand || ''} onChange={event => update('brand', event.target.value)} autoComplete="off" /><datalist id="editor-brand-suggestions">{suggestions.brands.map(value => <option key={value} value={value} />)}</datalist></label>
         <label>Kategorie<select value={item.category || ''} onChange={event => { update('category', event.target.value); update('subcategory', ''); }}><option value="">Bitte wählen</option>{Object.keys(categories).map(value => <option key={value}>{value}</option>)}</select></label>
         <label>Unterkategorie<select value={item.subcategory || ''} onChange={event => update('subcategory', event.target.value)}><option value="">Bitte wählen</option>{item.category && categories[item.category as CategoryName]?.map(value => <option key={value}>{value}</option>)}</select></label>
         <label>Originalgröße<input value={item.original_size || ''} onChange={event => update('original_size', event.target.value)} /></label>
-        <label>Hauptfarbe<input value={item.color || ''} onChange={event => update('color', event.target.value)} /></label>
-        <label>Material<input value={item.material || ''} onChange={event => update('material', event.target.value)} /></label>
+        <label>Hauptfarbe<input list="editor-color-suggestions" value={item.color || ''} onChange={event => update('color', event.target.value)} autoComplete="off" /><datalist id="editor-color-suggestions">{suggestions.colors.map(value => <option key={value} value={value} />)}</datalist></label>
+        <label>Material<input list="editor-material-suggestions" value={item.material || ''} onChange={event => update('material', event.target.value)} autoComplete="off" /><datalist id="editor-material-suggestions">{suggestions.materials.map(value => <option key={value} value={value} />)}</datalist></label>
         <label>Verkaufspreis (€)<input type="number" value={item.sale_price ?? ''} onChange={event => update('sale_price', event.target.value ? Number(event.target.value) : null)} /></label>
-        <label>Lagerort<select value={item.warehouse_location || ''} onChange={event => update('warehouse_location', event.target.value)}><option value="">Bitte wählen</option>{warehouseLocations.map(value => <option key={value}>{value}</option>)}</select></label>
+        <label>Lagerort<input list="editor-warehouse-suggestions" value={item.warehouse_location || ''} onChange={event => update('warehouse_location', event.target.value)} autoComplete="off" placeholder="Bitte wählen oder neu eingeben" /><datalist id="editor-warehouse-suggestions">{suggestions.warehouses.map(value => <option key={value} value={value} />)}</datalist></label>
         <label>Regal<input value={item.warehouse_rack || ''} onChange={event => update('warehouse_rack', event.target.value)} placeholder="z. B. B" /></label>
         <label>Fach<input value={item.warehouse_shelf || ''} onChange={event => update('warehouse_shelf', event.target.value)} placeholder="z. B. 14" /></label>
         <label>Letzte Inventur<input type="date" value={item.last_inventory_at ? item.last_inventory_at.slice(0,10) : ''} onChange={event => update('last_inventory_at', event.target.value || null)} /></label>

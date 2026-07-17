@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { CameraIcon, UploadIcon } from './Icons';
 import { categories, designerSuggestions, type CategoryName } from '@/lib/catalog';
 
@@ -57,6 +57,19 @@ export default function ArticleCaptureForm() {
   const [message, setMessage] = useState('');
   const [progress, setProgress] = useState(0);
   const [analyzing, setAnalyzing] = useState(false);
+  const [suggestions, setSuggestions] = useState({ brands: designerSuggestions, materials: [] as string[], colors: [] as string[], warehouses: [] as string[] });
+
+  useEffect(() => {
+    fetch('/api/suggestions', { cache: 'no-store' })
+      .then(response => response.ok ? response.json() : Promise.reject())
+      .then(data => setSuggestions({
+        brands: Array.isArray(data.brands) ? data.brands : designerSuggestions,
+        materials: Array.isArray(data.materials) ? data.materials : [],
+        colors: Array.isArray(data.colors) ? data.colors : [],
+        warehouses: Array.isArray(data.warehouses) ? data.warehouses : [],
+      }))
+      .catch(() => undefined);
+  }, []);
 
   const photoCount = useMemo(() => `${photos.length}/9 Fotos`, [photos.length]);
 
@@ -267,7 +280,7 @@ export default function ArticleCaptureForm() {
       <div className="form-grid">
         <label>Artikelnummer *<input value={form.sku} readOnly aria-label="Automatisch erzeugte Artikelnummer" placeholder="Unterkategorie wählen" required /><small>Schema: MCP-KL-12345. Nach dem Speichern unveränderlich.</small></label>
         <label>Status<select value={form.status} onChange={e=>update('status',e.target.value)}><option>Entwurf</option><option>Aktiv</option><option>Reserviert</option><option>Verkauft</option></select></label>
-        <label>Marke / Designer<input list="designer-suggestions" value={form.brand} onChange={e=>update('brand',e.target.value)} /><datalist id="designer-suggestions">{designerSuggestions.map(name=><option key={name} value={name}/>)}</datalist></label>
+        <label>Marke / Designer<input list="designer-suggestions" value={form.brand} onChange={e=>update('brand',e.target.value)} autoComplete="off" /><datalist id="designer-suggestions">{suggestions.brands.map(name=><option key={name} value={name}/>)}</datalist></label>
         <label>Kategorie<select value={form.category} onChange={e=>setForm(prev=>({...prev,category:e.target.value,subcategory:''}))}><option value="">Bitte wählen</option>{Object.keys(categories).map(category=><option key={category}>{category}</option>)}</select></label>
         <label>Unterkategorie *<select value={form.subcategory} onChange={async e=>{const value=e.target.value; setForm(prev=>({...prev,subcategory:value,sku:''})); if(value){try{const sku=await requestSku(value); setForm(prev=>prev.subcategory===value?{...prev,sku}:prev);}catch(error){setMessage(error instanceof Error?error.message:'SKU konnte nicht erzeugt werden.')}}}} disabled={!form.category} required><option value="">{form.category ? 'Bitte wählen' : 'Zuerst Kategorie wählen'}</option>{form.category && categories[form.category as CategoryName]?.map(item=><option key={item}>{item}</option>)}</select></label>
         <label>Saison<select value={form.season} onChange={e=>update('season',e.target.value)}><option>Ganzjährig</option><option>Frühling</option><option>Sommer</option><option>Herbst</option><option>Winter</option></select></label>
@@ -275,9 +288,9 @@ export default function ArticleCaptureForm() {
         <label>Größensystem<select value={form.size_system} onChange={e=>update('size_system',e.target.value)}><option>DE</option><option>FR</option><option>IT</option><option>UK</option><option>US</option><option>One Size</option></select></label>
         <label>DE-Vergleichsgröße<input value={form.de_size} onChange={e=>update('de_size',e.target.value)} /></label>
         <label>Internationale Größe<input value={form.international_size} onChange={e=>update('international_size',e.target.value)} placeholder="XS / S / M / L" /></label>
-        <label>Hauptfarbe<input value={form.color} onChange={e=>update('color',e.target.value)} /></label>
+        <label>Hauptfarbe<input list="color-suggestions" value={form.color} onChange={e=>update('color',e.target.value)} autoComplete="off" /><datalist id="color-suggestions">{suggestions.colors.map(value=><option key={value} value={value}/>)}</datalist></label>
         <label>Nebenfarbe<input value={form.secondary_color} onChange={e=>update('secondary_color',e.target.value)} /></label>
-        <label>Material<input value={form.material} onChange={e=>update('material',e.target.value)} /></label>
+        <label>Material<input list="material-suggestions" value={form.material} onChange={e=>update('material',e.target.value)} autoComplete="off" /><datalist id="material-suggestions">{suggestions.materials.map(value=><option key={value} value={value}/>)}</datalist></label>
         <label>Muster<input value={form.pattern} onChange={e=>update('pattern',e.target.value)} /></label>
         <label>Zustand<select value={form.condition} onChange={e=>update('condition',e.target.value)}><option>Neu mit Etikett</option><option>Neuwertig</option><option>Sehr gut</option><option>Gut</option><option>Akzeptabel</option></select></label>
         <label>Epoche<input value={form.era} onChange={e=>update('era',e.target.value)} placeholder="1990er, Y2K …" /></label>
@@ -309,7 +322,7 @@ export default function ArticleCaptureForm() {
         </fieldset>
         <label>Einkaufspreis (€)<input type="number" min="0" step="0.01" value={form.purchase_price} onChange={e=>update('purchase_price',e.target.value)} /></label>
         <label>Verkaufspreis (€)<input type="number" min="0" step="0.01" value={form.sale_price} onChange={e=>update('sale_price',e.target.value)} /></label>
-        <label>Lagerort<select value={form.warehouse_location} onChange={e=>update('warehouse_location',e.target.value)}><option value="">Bitte wählen</option><option>Boutique</option><option>Lager A</option><option>Lager B</option><option>Schaufenster</option><option>Fotoshooting</option><option>Versand</option><option>Qualitätsprüfung</option><option>Reinigung</option><option>Retouren</option><option>Extern</option><option>Sonstiges</option></select></label>
+        <label>Lagerort<input list="warehouse-suggestions" value={form.warehouse_location} onChange={e=>update('warehouse_location',e.target.value)} autoComplete="off" placeholder="Bitte wählen oder neu eingeben" /><datalist id="warehouse-suggestions">{suggestions.warehouses.map(value=><option key={value} value={value}/>)}</datalist></label>
         <label>Regal<input value={form.warehouse_rack} onChange={e=>update('warehouse_rack',e.target.value)} placeholder="z. B. B" /></label>
         <label>Fach<input value={form.warehouse_shelf} onChange={e=>update('warehouse_shelf',e.target.value)} placeholder="z. B. 14" /></label>
         <label className="full">Maße<textarea value={form.measurements} onChange={e=>update('measurements',e.target.value)} placeholder="Brustweite, Länge, Schulter, Ärmel …" /></label>

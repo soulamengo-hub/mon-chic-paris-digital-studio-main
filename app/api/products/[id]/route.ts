@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseConfig, supabaseHeaders } from '@/lib/supabase';
 import type { ProductInput } from '@/lib/types';
+import { sanitizeProductInput } from '@/lib/product-fields';
 
 type Context = { params: Promise<{ id: string }> };
 export async function GET(_: Request, { params }: Context) {
@@ -15,8 +16,8 @@ export async function GET(_: Request, { params }: Context) {
 }
 export async function PATCH(request: Request, { params }: Context) {
   const { id } = await params;
-  const body = await request.json() as Partial<ProductInput>;
-  delete (body as {sku?:string}).sku;
+  const rawBody = await request.json();
+  const body = sanitizeProductInput(rawBody, { allowSku: false });
   const { url } = getSupabaseConfig();
   const headers = supabaseHeaders();
   const currentRes = await fetch(`${url}/rest/v1/products?id=eq.${encodeURIComponent(id)}&select=*`, { headers, cache: 'no-store' });
