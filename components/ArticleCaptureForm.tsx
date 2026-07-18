@@ -7,6 +7,7 @@ import { categories, designerSuggestions, type CategoryName } from '@/lib/catalo
 type PhotoItem = { file: File; preview: string };
 
 const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
+const MAX_ANALYSIS_IMAGES = 9;
 const ALLOWED_IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'];
 
 type FormState = {
@@ -105,10 +106,10 @@ export default function ArticleCaptureForm() {
   function addFiles(fileList: FileList | null) {
     if (!fileList) return;
     const files = Array.from(fileList).filter(isSupportedImage);
-    const remaining = Math.max(0, 9 - photos.length);
+    const remaining = Math.max(0, MAX_ANALYSIS_IMAGES - photos.length);
     const next = files.slice(0, remaining).map(file => ({ file, preview: URL.createObjectURL(file) }));
     setPhotos(prev => [...prev, ...next]);
-    if (files.length > remaining) setMessage(`Maximal 9 Fotos möglich. ${files.length - remaining} Foto(s) wurden nicht hinzugefügt.`);
+    if (files.length > remaining) setMessage(`Maximal ${MAX_ANALYSIS_IMAGES} Fotos möglich. ${files.length - remaining} Foto(s) wurden nicht hinzugefügt.`);
   }
 
   function sanitizeFileName(name: string) {
@@ -172,21 +173,42 @@ export default function ArticleCaptureForm() {
     return canvas.toDataURL('image/jpeg', 0.78);
   }
 
-  async function analyzeFirstPhoto() {
+  async function analyzeAllPhotos() {
     if (!photos.length) { setMessage('Bitte zuerst mindestens ein Foto aufnehmen.'); return; }
     setAnalyzing(true); setMessage('');
     try {
-      const imageDataUrl = await photoToAnalysisDataUrl(photos[0].file);
+      const imageDataUrls = await Promise.all(
+        photos.slice(0, MAX_ANALYSIS_IMAGES).map(photo => photoToAnalysisDataUrl(photo.file)),
+      );
       const response = await fetch('/api/ai/analyze', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imageDataUrl }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imageDataUrls }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'KI-Analyse fehlgeschlagen.');
+
+      const nextCategory = result.category && Object.prototype.hasOwnProperty.call(categories, result.category)
+        ? result.category
+        : form.category;
+      const validSubcategory = result.subcategory && nextCategory && (categories[nextCategory as CategoryName] as readonly string[])?.includes(String(result.subcategory))
+        ? result.subcategory
+        : form.subcategory;
+
+      let generatedSku = form.sku;
+      if (validSubcategory && validSubcategory !== form.subcategory) {
+        try { generatedSku = await requestSku(validSubcategory); } catch { generatedSku = ''; }
+      }
+
       setForm(prev => ({
         ...prev,
+        sku: generatedSku || prev.sku,
         brand: result.brand || prev.brand,
-        category: result.category && Object.prototype.hasOwnProperty.call(categories, result.category) ? result.category : prev.category,
-        subcategory: result.subcategory || prev.subcategory,
+        category: nextCategory || prev.category,
+        subcategory: validSubcategory || prev.subcategory,
+        season: result.season || prev.season,
+        original_size: result.original_size || prev.original_size,
+        size_system: result.size_system || prev.size_system,
+        de_size: result.de_size || prev.de_size,
+        international_size: result.international_size || prev.international_size,
         color: result.color || prev.color,
         secondary_color: result.secondary_color || prev.secondary_color,
         material: result.material || prev.material,
@@ -195,9 +217,11 @@ export default function ArticleCaptureForm() {
         era: result.era || prev.era,
         style_key: result.style_key || prev.style_key,
         occasions: Array.isArray(result.occasions) ? result.occasions : prev.occasions,
+        measurements: result.measurements || prev.measurements,
+        flaws: result.flaws || prev.flaws,
         notes: result.notes ? [prev.notes, `KI-Hinweis: ${result.notes}`].filter(Boolean).join('\n') : prev.notes,
       }));
-      setMessage('KI-Vorschläge wurden übernommen. Bitte alle Angaben vor dem Speichern prüfen.');
+      setMessage(`${result.image_count || imageDataUrls.length} Fotos wurden gemeinsam analysiert. Bitte alle KI-Angaben prüfen.`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'KI-Analyse fehlgeschlagen.');
     } finally {
@@ -276,7 +300,7 @@ export default function ArticleCaptureForm() {
     </section>
 
     <section className="capture-card">
-      <div className="capture-heading"><div><span className="step-badge">2</span><h2>Artikel-DNA</h2></div><button type="button" className="ai-analysis-button" onClick={analyzeFirstPhoto} disabled={analyzing || !photos.length}>{analyzing ? 'KI analysiert …' : '✦ Foto mit KI analysieren'}</button></div>
+      <div className="capture-heading"><div><span className="step-badge">2</span><h2>Artikel-DNA</h2></div><button type="button" className="ai-analysis-button" onClick={analyzeAllPhotos} disabled={analyzing || !photos.length}>{analyzing ? 'KI analysiert alle Fotos …' : '✦ Alle Fotos analysieren'}</button></div>
       <div className="form-grid">
         <label>Artikelnummer *<input value={form.sku} readOnly aria-label="Automatisch erzeugte Artikelnummer" placeholder="Unterkategorie wählen" required /><small>Schema: MCP-KL-12345. Nach dem Speichern unveränderlich.</small></label>
         <label>Status<select value={form.status} onChange={e=>update('status',e.target.value)}><option>Entwurf</option><option>Aktiv</option><option>Reserviert</option><option>Verkauft</option></select></label>

@@ -12,5 +12,5 @@ export const skuCodes: Record<string, string> = {
   Gürtel:'GT', Schal:'SC', Tuch:'TU', Handschuhe:'HS', Hut:'HU', Mütze:'MZ', Sonnenbrille:'SB', Schmuck:'SM', Uhr:'UH',
 };
 
-export const designerSuggestions = ['Alaïa','Balenciaga','Burberry','Celine','Chanel','Christian Dior','Fendi','Givenchy','Gucci','Hermès','Isabel Marant','Loewe','Louis Vuitton','Max Mara','Miu Miu','Moncler','Prada','Saint Laurent','Sandro','Valentino','Versace'];
+export const designerSuggestions = ['Alaïa','Balenciaga','Burberry','Celine','Chanel','Christian Dior','Claudie Pierlot','COS','Esprit','Fendi','Givenchy','Gucci','Guess','H&M','Hermès','Isabel Marant','Loewe','Louis Vuitton','Maje','Mango','Marc O\'Polo','Massimo Dutti','Max Mara','Michael Kors','Miu Miu','Moncler','Prada','Ralph Lauren','Reiss','Saint Laurent','Sandro','Sézane','Tommy Hilfiger','Uniqlo','Valentino','Versace','Zara'];
 export type CategoryName = keyof typeof categories;
