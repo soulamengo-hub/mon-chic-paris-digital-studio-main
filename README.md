@@ -1,29 +1,20 @@
-# MON CHIC PARIS · Digital Studio 6.4.2 CI UPDATE
+# MON CHIC PARIS · Digital Studio 6.5.5
 
-Saubere Hauptversion für das neue zentrale GitHub-Repository.
+Produktionsstand mit Fashion Intelligence und vollständiger Artikel-DNA.
 
 ## Enthalten
-- finales MON CHIC PARIS DIGITAL STUDIO Logo
-- CI-Navy `#061B49`, Creme `#FDF9F6`, Gold `#C7922D`
-- automatische SKU nach Unterkategorie, z. B. `MCP-KL-12345`
-- Artikel öffnen, bearbeiten und löschen
-- öffentliche Produkttexte getrennt von internen Notizen
-- Lagerort, Regal und Fach änderbar
-- Lagerhistorie und Inventurdatum
-- Excel-/CSV-Import bis 1.000 Zeilen
-- Sales-Modul mit Status „Verkauft“
+- gemeinsame KI-Analyse von bis zu 9 Produktfotos
+- priorisierte Erkennung von Marke, Größe und Materialetiketten
+- vollständige Artikel-DNA mit Kategorie, Unterkategorie, Größen, Material, Muster, Saison, Maßen, Mängeln und Anlässen
+- automatische SKU-Erzeugung nach gültiger Unterkategorie
+- Artikel öffnen, bearbeiten und mit Sicherheitsabfrage löschen
+- vollständige Produktdarstellung in der Artikelliste durch `object-fit: contain`
+- Lagerverwaltung, Sales, CRM, Content Studio, Finance und Analytics
 
-## Supabase vor dem Deployment
-1. `supabase/migration_6_3.sql`
-2. `supabase/migration_6_3_1_storage_history.sql`
+## Deployment
+- GitHub-Branch: `main`
+- Vercel Root Directory: `./`
+- Node.js: `24.x`
+- keine neue Supabase-Migration für 6.5.5 erforderlich
 
-## Vercel
-- Root Directory: `./`
-- Framework: Next.js
-- Node.js: 24.x
-- Variablen: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-
-
-## Version 6.4.2
-- sichere Artikelspeicherung durch serverseitige Feldfreigabe
-- dynamische Vorschläge aus bestehenden Artikeln für Marke, Material, Farbe und Lagerort
+Nach dem Deployment muss `/api/health` die Version `6.5.5` melden.

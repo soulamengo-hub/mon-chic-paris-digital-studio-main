@@ -1,11 +1,18 @@
-# Deployment – MON CHIC PARIS · Digital Studio 6.4.2
+# Deployment – MON CHIC PARIS · Digital Studio 6.5.5
 
-1. ZIP entpacken. Nicht die ZIP selbst hochladen.
-2. Den gesamten entpackten Inhalt in den Root des zentralen GitHub-Repositorys laden.
-3. Commit direkt auf `main`: `Release 6.4.2 - safe product save and smart suggestions`
-4. In Supabase sicherstellen, dass `migration_6_3.sql` und `migration_6_3_1_storage_history.sql` ausgeführt wurden.
-5. Vercel aus genau diesem Repository deployen.
-6. Environment Variables prüfen: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
-7. Nach dem Deployment `/api/health` öffnen; dort muss `6.4.2` stehen.
-8. Einen bestehenden Artikel öffnen, Marke oder Lagerort ändern und speichern.
-9. Einen neuen Artikel anlegen und prüfen, ob gespeicherte Marken, Materialien, Farben und Lagerorte vorgeschlagen werden.
+## Wichtig: keine Dateimischung
+Den Inhalt dieses Pakets als vollständigen Projektstand verwenden. Alte Dateien nicht mit dem neuen Stand zusammenkopieren.
+
+Empfohlenes Vorgehen mit GitHub Desktop:
+1. Repository `soulamengo-hub/mon-chic-paris-digital-studio-main` lokal klonen.
+2. Im lokalen Repository alle Projektdateien außer dem versteckten Ordner `.git` entfernen.
+3. Den vollständigen Inhalt dieses entpackten Pakets in den Repository-Ordner kopieren.
+4. Prüfen, dass `package.json` die Version `6.5.5` enthält.
+5. Commit: `Release 6.5.5 - Hotfix Artikel-DNA und sichere Artikelansicht`
+6. Auf `main` pushen.
+7. Vercel-Deployment abwarten.
+8. `/api/health` öffnen; dort muss `6.5.5` stehen.
+9. Artikel-Neuanlage prüfen: 9 Fotos, Artikel-DNA und Anlässe müssen sichtbar sein.
+10. Artikelliste prüfen: vollständige Vorschaubilder und Löschfunktion.
+
+Keine neue Supabase-Migration ausführen.

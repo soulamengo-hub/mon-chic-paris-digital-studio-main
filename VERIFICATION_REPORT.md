@@ -1,21 +1,23 @@
-# Verifizierungsbericht – MON CHIC PARIS · Digital Studio 6.4.2
+# Verifizierungsbericht – MON CHIC PARIS · Digital Studio 6.5.5
 
-Prüfdatum: 2026-07-17
+Prüfdatum: 2026-07-18
 
 ## Ausgeführt
 - `npm ci`: erfolgreich
 - `npm run typecheck`: erfolgreich
 - `npm run build`: erfolgreich
-- Next.js 16.2.10: erfolgreich
-- 19 Seiten/API-Routen generiert
+- Next.js 16.2.10: 19 Seiten/API-Routen generiert
 
-## Geprüfte Änderungen
-- serverseitige Whitelist für speicherbare Produktfelder
-- technische Felder wie `product_images`, `id`, `created_at` und `updated_at` werden nicht an die Produkttabelle übertragen
-- dynamische Vorschlags-API für Marke, Material, Farbe und Lagerort
-- Vorschläge in Neuerfassung und Artikel-Editor eingebunden
-- freie Eingabe neuer Werte bleibt möglich
-- Health-Endpunkt meldet Version 6.4.2
+## Geprüfte Kernfunktionen
+- Paketversion und Health-Endpunkt: `6.5.5`
+- Mehrbildanalyse: maximal 9 Fotos
+- Artikel-DNA einschließlich Anlässe, Größen, Material, Muster, Maße und Mängel
+- automatische SKU nach gültiger Unterkategorie
+- Artikellöschung mit Sicherheitsabfrage
+- Vorschaubilder mit `object-fit: contain`
+- keine Datenbankmigration erforderlich
 
 ## Hinweis zur Testumgebung
-Die Verifikation lief mit Node.js 22.16.0. Das Projekt verlangt für Vercel weiterhin Node.js 24.x; npm zeigte deshalb lokal lediglich eine Engine-Warnung. Typecheck und Produktions-Build waren erfolgreich.
+Die Prüfung lief mit Node.js 22.16.0. Das Projekt verlangt für Vercel Node.js 24.x; npm zeigte lokal eine Engine-Warnung. Typecheck und Produktions-Build waren erfolgreich.
+
+`npm audit` meldet eine bestehende hohe Schwachstelle in einer Abhängigkeit (`xlsx`). Diese wurde in diesem Hotfix nicht verändert.

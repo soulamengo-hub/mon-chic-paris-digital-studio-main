@@ -2,7 +2,6 @@
 .gitignore
 .npmrc
 DEPLOYMENT.md
-FILE_MANIFEST.txt
 README.md
 RELEASE_NOTES_6.2.6.md
 RELEASE_NOTES_6.3.1.md
@@ -11,6 +10,8 @@ RELEASE_NOTES_6.3.md
 RELEASE_NOTES_6.4.0.md
 RELEASE_NOTES_6.4.1.md
 RELEASE_NOTES_6.4.2.md
+RELEASE_NOTES_6.5.3.md
+RELEASE_NOTES_6.5.5.md
 VERIFICATION_REPORT.md
 app/ai-studio/page.tsx
 app/analytics/page.tsx
