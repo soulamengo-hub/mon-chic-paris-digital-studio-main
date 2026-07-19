@@ -1,0 +1,2 @@
+import AppShell from '@/components/AppShell';
+export default function Page(){return <AppShell><div className="page-header"><div><p className="eyebrow">MON CHIC PARIS</p><h1>AI Studio</h1><p>Dieses Modul ist sauber vorbereitet und wird nach dem produktiven Artikelstart ausgebaut.</p></div></div><section className="panel empty-state"><h2>Modul vorbereitet</h2><p>Die Navigation, Gestaltung und technische Basis sind vorhanden. Es entstehen keine KI-Kosten.</p></section></AppShell>}

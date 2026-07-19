@@ -1,13 +1,20 @@
-# MON CHIC PARIS · Digital Studio 6.2.6
+# MON CHIC PARIS · Digital Studio 6.5.5
 
-## Saubere Produktionsbasis
+Produktionsstand mit Fashion Intelligence und vollständiger Artikel-DNA.
 
-- ausschließlich die freigegebenen Module der Version 6.2
-- keine Legacy-Ordner aus älteren Releases
-- keine Tailwind- oder PostCSS-Konfiguration
-- Node.js 24.x für Vercel
-- Health-API meldet Version 6.2.6
-- Live-Artikelliste und Lager verwenden dieselbe Supabase-Datenquelle
-- direkte Mehrfachfoto-Uploads zu Supabase bleiben erhalten
+## Enthalten
+- gemeinsame KI-Analyse von bis zu 9 Produktfotos
+- priorisierte Erkennung von Marke, Größe und Materialetiketten
+- vollständige Artikel-DNA mit Kategorie, Unterkategorie, Größen, Material, Muster, Saison, Maßen, Mängeln und Anlässen
+- automatische SKU-Erzeugung nach gültiger Unterkategorie
+- Artikel öffnen, bearbeiten und mit Sicherheitsabfrage löschen
+- vollständige Produktdarstellung in der Artikelliste durch `object-fit: contain`
+- Lagerverwaltung, Sales, CRM, Content Studio, Finance und Analytics
 
-Für eine bereits funktionierende Datenbank ab Version 5.1.2 ist keine neue SQL-Migration erforderlich.
+## Deployment
+- GitHub-Branch: `main`
+- Vercel Root Directory: `./`
+- Node.js: `24.x`
+- keine neue Supabase-Migration für 6.5.5 erforderlich
+
+Nach dem Deployment muss `/api/health` die Version `6.5.5` melden.
