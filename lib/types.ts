@@ -7,3 +7,29 @@ export type ProductInput = {
   internal_notes?: string; public_title?: string; public_description?: string; warehouse_location?: string; warehouse_rack?: string; warehouse_shelf?: string; last_inventory_at?: string | null; last_movement_at?: string | null; status?: string;
 };
 export type ProductRecord = ProductInput & { id: string; created_at: string; updated_at: string; product_images?: Array<{id?:string; public_url:string; storage_path?:string; sort_order:number}> };
+
+// Legacy modules still use these broader records. Keep them compatible while the
+// application is consolidated around ProductInput/ProductRecord.
+export type Product = ProductRecord & {
+  discount_percent?: number | string | null;
+  designer_level?: string;
+  occasion?: string;
+  rarity?: string;
+  target_country?: string;
+  sales_channel?: string;
+  trend_score?: number | string | null;
+  storage_location?: string;
+  purchase_source?: string;
+  sold_at?: string | null;
+};
+
+export type Expense = {
+  id?: string;
+  category?: string;
+  description?: string;
+  gross_amount?: number | string | null;
+  net_amount?: number | string | null;
+  tax_amount?: number | string | null;
+  date?: string;
+  created_at?: string;
+};

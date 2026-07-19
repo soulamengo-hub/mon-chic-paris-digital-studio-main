@@ -3,13 +3,9 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: 'MON CHIC PARIS · Digital Studio',
-  description: 'Professionelles Digital Studio für Artikel, Fotos, Lager und Content.',
+  description: 'Digital Studio für Artikel, Lager, Verkauf und CRM.',
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return (
-    <html lang="de">
-      <body>{children}</body>
-    </html>
-  );
+  return <html lang="de"><body>{children}</body></html>;
 }

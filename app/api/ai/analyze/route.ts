@@ -98,7 +98,7 @@ function parseJson(text: string): AnalysisResult {
   const subcategory = cleanString(raw.subcategory);
   const inferredCategory = subcategory ? subcategoryToCategory.get(subcategory) : undefined;
   const category = cleanString(raw.category);
-  if (inferredCategory && confidenceFor(raw, 'subcategory') >= 0.65) {
+  if (inferredCategory && confidenceFor(raw, 'subcategory') >= 0.50) {
     result.subcategory = subcategory;
     result.category = inferredCategory;
   } else if (category && categoryNames.includes(category) && confidenceFor(raw, 'category') >= 0.65) {

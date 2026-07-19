@@ -1,8 +1,7 @@
-# MON CHIC PARIS · Digital Studio 6.3.1
+# MON CHIC PARIS · Digital Studio 6.3.2
 
-- Lagerort bleibt jederzeit änderbar
-- strukturierte Lagerplätze mit Lagerort, Regal und Fach
-- Datum der letzten Inventur
-- automatische Zeitangabe der letzten Lagerbewegung
-- Artikeländerungen werden in `product_history` protokolliert
-- SKU bleibt nach dem ersten Speichern unveränderlich
+- finales MON CHIC PARIS DIGITAL STUDIO Logo eingebunden
+- Originaldatei zusätzlich als `public/mon-chic-logo-master.png` enthalten
+- optimierte App-Datei als `public/mon-chic-logo.png`
+- Seitenverhältnis bleibt unverändert; keine Verzerrung
+- bestehende Artikelverwaltung, SKU-Logik, Lagerorte und Historie bleiben erhalten

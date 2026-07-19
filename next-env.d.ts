@@ -1,11 +1,6 @@
-import type { Metadata } from 'next';
-import './globals.css';
+/// <reference types="next" />
+/// <reference types="next/image-types/global" />
+import "./.next/types/routes.d.ts";
 
-export const metadata: Metadata = {
-  title: 'MON CHIC PARIS · Digital Studio',
-  description: 'Digital Studio für Artikel, Lager, Verkauf und CRM.',
-};
-
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="de"><body>{children}</body></html>;
-}
+// NOTE: This file should not be edited
+// see https://nextjs.org/docs/app/api-reference/config/typescript for more information.

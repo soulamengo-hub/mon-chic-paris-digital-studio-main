@@ -1,13 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { CameraIcon, UploadIcon } from './Icons';
 import { categories, designerSuggestions, type CategoryName } from '@/lib/catalog';
 
 type PhotoItem = { file: File; preview: string };
 
 const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
-const MAX_ANALYSIS_IMAGES = 9;
 const ALLOWED_IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'];
 
 type FormState = {
@@ -17,6 +16,10 @@ type FormState = {
   era: string; style_key: string; authenticity_status: string; purchase_price: string;
   sale_price: string; occasions: string[]; measurements: string; flaws: string; notes: string; warehouse_location: string; warehouse_rack: string; warehouse_shelf: string; status: string;
 };
+
+type AiDraft = Partial<FormState> & { confidence?: Record<string, number> };
+type AiBudget = { budgetEur: number; spentEur: number; remainingEur: number; percent: number; warning: boolean; blocked: boolean };
+type AiUsage = { inputTokens: number; outputTokens: number; estimatedCostEur: number };
 
 
 const occasionGroups = [
@@ -58,19 +61,9 @@ export default function ArticleCaptureForm() {
   const [message, setMessage] = useState('');
   const [progress, setProgress] = useState(0);
   const [analyzing, setAnalyzing] = useState(false);
-  const [suggestions, setSuggestions] = useState({ brands: designerSuggestions, materials: [] as string[], colors: [] as string[], warehouses: [] as string[] });
-
-  useEffect(() => {
-    fetch('/api/suggestions', { cache: 'no-store' })
-      .then(response => response.ok ? response.json() : Promise.reject())
-      .then(data => setSuggestions({
-        brands: Array.isArray(data.brands) ? data.brands : designerSuggestions,
-        materials: Array.isArray(data.materials) ? data.materials : [],
-        colors: Array.isArray(data.colors) ? data.colors : [],
-        warehouses: Array.isArray(data.warehouses) ? data.warehouses : [],
-      }))
-      .catch(() => undefined);
-  }, []);
+  const [aiDraft, setAiDraft] = useState<AiDraft | null>(null);
+  const [aiBudget, setAiBudget] = useState<AiBudget | null>(null);
+  const [aiUsage, setAiUsage] = useState<AiUsage | null>(null);
 
   const photoCount = useMemo(() => `${photos.length}/9 Fotos`, [photos.length]);
 
@@ -106,10 +99,10 @@ export default function ArticleCaptureForm() {
   function addFiles(fileList: FileList | null) {
     if (!fileList) return;
     const files = Array.from(fileList).filter(isSupportedImage);
-    const remaining = Math.max(0, MAX_ANALYSIS_IMAGES - photos.length);
+    const remaining = Math.max(0, 9 - photos.length);
     const next = files.slice(0, remaining).map(file => ({ file, preview: URL.createObjectURL(file) }));
     setPhotos(prev => [...prev, ...next]);
-    if (files.length > remaining) setMessage(`Maximal ${MAX_ANALYSIS_IMAGES} Fotos möglich. ${files.length - remaining} Foto(s) wurden nicht hinzugefügt.`);
+    if (files.length > remaining) setMessage(`Maximal 9 Fotos möglich. ${files.length - remaining} Foto(s) wurden nicht hinzugefügt.`);
   }
 
   function sanitizeFileName(name: string) {
@@ -177,57 +170,100 @@ export default function ArticleCaptureForm() {
     if (!photos.length) { setMessage('Bitte zuerst mindestens ein Foto aufnehmen.'); return; }
     setAnalyzing(true); setMessage('');
     try {
-      const imageDataUrls = await Promise.all(
-        photos.slice(0, MAX_ANALYSIS_IMAGES).map(photo => photoToAnalysisDataUrl(photo.file)),
-      );
+      const imageDataUrls = await Promise.all(photos.map(photo => photoToAnalysisDataUrl(photo.file)));
       const response = await fetch('/api/ai/analyze', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imageDataUrls }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'KI-Analyse fehlgeschlagen.');
-
-      const nextCategory = result.category && Object.prototype.hasOwnProperty.call(categories, result.category)
-        ? result.category
-        : form.category;
-      const validSubcategory = result.subcategory && nextCategory && (categories[nextCategory as CategoryName] as readonly string[])?.includes(String(result.subcategory))
-        ? result.subcategory
-        : form.subcategory;
-
-      let generatedSku = form.sku;
-      if (validSubcategory && validSubcategory !== form.subcategory) {
-        try { generatedSku = await requestSku(validSubcategory); } catch { generatedSku = ''; }
-      }
-
-      setForm(prev => ({
-        ...prev,
-        sku: generatedSku || prev.sku,
-        brand: result.brand || prev.brand,
-        category: nextCategory || prev.category,
-        subcategory: validSubcategory || prev.subcategory,
-        season: result.season || prev.season,
-        original_size: result.original_size || prev.original_size,
-        size_system: result.size_system || prev.size_system,
-        de_size: result.de_size || prev.de_size,
-        international_size: result.international_size || prev.international_size,
-        color: result.color || prev.color,
-        secondary_color: result.secondary_color || prev.secondary_color,
-        material: result.material || prev.material,
-        pattern: result.pattern || prev.pattern,
-        condition: result.condition || prev.condition,
-        era: result.era || prev.era,
-        style_key: result.style_key || prev.style_key,
-        occasions: Array.isArray(result.occasions) ? result.occasions : prev.occasions,
-        measurements: result.measurements || prev.measurements,
-        flaws: result.flaws || prev.flaws,
-        notes: result.notes ? [prev.notes, `KI-Hinweis: ${result.notes}`].filter(Boolean).join('\n') : prev.notes,
-      }));
-      setMessage(`${result.image_count || imageDataUrls.length} Fotos wurden gemeinsam analysiert. Bitte alle KI-Angaben prüfen.`);
+      setAiDraft({
+        brand: result.brand,
+        category: result.category,
+        subcategory: result.subcategory,
+        color: result.color,
+        secondary_color: result.secondary_color,
+        material: result.material,
+        pattern: result.pattern,
+        condition: result.condition,
+        season: result.season,
+        original_size: result.original_size,
+        size_system: result.size_system,
+        de_size: result.de_size,
+        international_size: result.international_size,
+        era: result.era,
+        style_key: result.style_key,
+        occasions: result.occasions,
+        measurements: result.measurements,
+        flaws: result.flaws,
+        notes: result.notes,
+        confidence: result.confidence,
+      });
+      setMessage(`KI-Analyse von ${result.image_count || photos.length} Foto(s) abgeschlossen. Vorschläge bitte prüfen.`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'KI-Analyse fehlgeschlagen.');
     } finally {
       setAnalyzing(false);
     }
   }
+
+  async function applyAiField(key: keyof FormState) {
+    if (!aiDraft) return;
+    const value = aiDraft[key];
+    if (value === undefined || value === null) return;
+    if (key === 'subcategory' && typeof value === 'string') {
+      const category = Object.entries(categories).find(([, values]) => (values as readonly string[]).includes(value))?.[0] || aiDraft.category || form.category;
+      setForm(prev => ({ ...prev, category, subcategory: value, sku: '' }));
+      try {
+        const sku = await requestSku(value);
+        setForm(prev => prev.subcategory === value ? { ...prev, sku } : prev);
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : 'SKU konnte nicht erzeugt werden.');
+      }
+      return;
+    }
+    setForm(prev => ({ ...prev, [key]: value }));
+  }
+
+  async function applyAllAiSuggestions() {
+    if (!aiDraft) return;
+    const { confidence: _confidence, ...suggestions } = aiDraft;
+    const validSuggestions = Object.fromEntries(Object.entries(suggestions).filter(([, value]) => value !== undefined && value !== null && value !== ''));
+    const subcategory = typeof suggestions.subcategory === 'string' ? suggestions.subcategory : '';
+    const inferredCategory = subcategory
+      ? Object.entries(categories).find(([, values]) => (values as readonly string[]).includes(subcategory))?.[0]
+      : undefined;
+    setForm(prev => ({ ...prev, ...validSuggestions, ...(inferredCategory ? { category: inferredCategory } : {}), ...(subcategory ? { sku: '' } : {}) } as FormState));
+    if (subcategory) {
+      try {
+        const sku = await requestSku(subcategory);
+        setForm(prev => prev.subcategory === subcategory ? { ...prev, sku } : prev);
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : 'SKU konnte nicht erzeugt werden.');
+        return;
+      }
+    }
+    setMessage('KI-Vorschläge wurden übernommen. Bitte vor dem Speichern prüfen.');
+  }
+
+  function confidenceLabel(key: string) {
+    const value = aiDraft?.confidence?.[key];
+    if (value === undefined) return 'Nicht bewertet';
+    if (value >= 0.9) return `Sehr sicher · ${Math.round(value * 100)} %`;
+    if (value >= 0.7) return `Prüfen · ${Math.round(value * 100)} %`;
+    return `Unsicher · ${Math.round(value * 100)} %`;
+  }
+
+  const aiFields: Array<{ key: keyof FormState; label: string }> = [
+    { key: 'brand', label: 'Marke' }, { key: 'category', label: 'Kategorie' },
+    { key: 'subcategory', label: 'Unterkategorie' }, { key: 'color', label: 'Hauptfarbe' },
+    { key: 'secondary_color', label: 'Nebenfarbe' }, { key: 'material', label: 'Material' },
+    { key: 'pattern', label: 'Muster' }, { key: 'condition', label: 'Zustand' },
+    { key: 'season', label: 'Saison' }, { key: 'original_size', label: 'Originalgröße' },
+    { key: 'size_system', label: 'Größensystem' }, { key: 'de_size', label: 'DE-Größe' },
+    { key: 'international_size', label: 'Internationale Größe' }, { key: 'era', label: 'Epoche' },
+    { key: 'style_key', label: 'Stilrichtung' }, { key: 'measurements', label: 'Maße' },
+    { key: 'flaws', label: 'Mängel' }, { key: 'notes', label: 'KI-Hinweis' },
+  ];
 
   function removePhoto(index: number) {
     setPhotos(prev => {
@@ -300,11 +336,27 @@ export default function ArticleCaptureForm() {
     </section>
 
     <section className="capture-card">
-      <div className="capture-heading"><div><span className="step-badge">2</span><h2>Artikel-DNA</h2></div><button type="button" className="ai-analysis-button" onClick={analyzeAllPhotos} disabled={analyzing || !photos.length}>{analyzing ? 'KI analysiert alle Fotos …' : '✦ Alle Fotos analysieren'}</button></div>
+      <div className="capture-heading"><div><span className="step-badge">2</span><h2>Artikel-DNA</h2></div><button type="button" className="ai-analysis-button" onClick={analyzeAllPhotos} disabled={analyzing || !photos.length || Boolean(aiBudget?.blocked)}>{analyzing ? 'KI analysiert …' : aiBudget?.blocked ? 'KI-Budget erreicht' : '✦ Alle Fotos analysieren'}</button></div>
+      {aiBudget && <div className={`ai-budget-card${aiBudget.warning ? ' warning' : ''}${aiBudget.blocked ? ' blocked' : ''}`}>
+        <div><strong>KI-Budget im laufenden Monat</strong><span>{aiBudget.spentEur.toFixed(3)} € von {aiBudget.budgetEur.toFixed(2)} € · noch {aiBudget.remainingEur.toFixed(2)} €</span></div>
+        <div className="ai-budget-track"><span style={{width: `${aiBudget.percent}%`}} /></div>
+        {aiUsage && <small>Letzte Analyse: ca. {aiUsage.estimatedCostEur.toFixed(4)} € · {aiUsage.inputTokens + aiUsage.outputTokens} Tokens</small>}
+      </div>}
+      {aiDraft && <section className="ai-draft-panel">
+        <div className="ai-draft-heading"><div><strong>Mon Chic AI – Vorschläge</strong><span>Nichts wird automatisch gespeichert.</span></div><button type="button" className="secondary-button" onClick={applyAllAiSuggestions}>Alle übernehmen</button></div>
+        <div className="ai-suggestion-grid">
+          {aiFields.filter(item => { const value = aiDraft[item.key]; return value !== undefined && value !== null && value !== ''; }).map(item => (
+            <article key={item.key} className="ai-suggestion">
+              <div><small>{item.label}</small><strong>{Array.isArray(aiDraft[item.key]) ? (aiDraft[item.key] as string[]).join(', ') : String(aiDraft[item.key])}</strong><span>{confidenceLabel(String(item.key))}</span></div>
+              <button type="button" onClick={() => applyAiField(item.key)}>Übernehmen</button>
+            </article>
+          ))}
+        </div>
+      </section>}
       <div className="form-grid">
         <label>Artikelnummer *<input value={form.sku} readOnly aria-label="Automatisch erzeugte Artikelnummer" placeholder="Unterkategorie wählen" required /><small>Schema: MCP-KL-12345. Nach dem Speichern unveränderlich.</small></label>
         <label>Status<select value={form.status} onChange={e=>update('status',e.target.value)}><option>Entwurf</option><option>Aktiv</option><option>Reserviert</option><option>Verkauft</option></select></label>
-        <label>Marke / Designer<input list="designer-suggestions" value={form.brand} onChange={e=>update('brand',e.target.value)} autoComplete="off" /><datalist id="designer-suggestions">{suggestions.brands.map(name=><option key={name} value={name}/>)}</datalist></label>
+        <label>Marke / Designer<input list="designer-suggestions" value={form.brand} onChange={e=>update('brand',e.target.value)} /><datalist id="designer-suggestions">{designerSuggestions.map(name=><option key={name} value={name}/>)}</datalist></label>
         <label>Kategorie<select value={form.category} onChange={e=>setForm(prev=>({...prev,category:e.target.value,subcategory:''}))}><option value="">Bitte wählen</option>{Object.keys(categories).map(category=><option key={category}>{category}</option>)}</select></label>
         <label>Unterkategorie *<select value={form.subcategory} onChange={async e=>{const value=e.target.value; setForm(prev=>({...prev,subcategory:value,sku:''})); if(value){try{const sku=await requestSku(value); setForm(prev=>prev.subcategory===value?{...prev,sku}:prev);}catch(error){setMessage(error instanceof Error?error.message:'SKU konnte nicht erzeugt werden.')}}}} disabled={!form.category} required><option value="">{form.category ? 'Bitte wählen' : 'Zuerst Kategorie wählen'}</option>{form.category && categories[form.category as CategoryName]?.map(item=><option key={item}>{item}</option>)}</select></label>
         <label>Saison<select value={form.season} onChange={e=>update('season',e.target.value)}><option>Ganzjährig</option><option>Frühling</option><option>Sommer</option><option>Herbst</option><option>Winter</option></select></label>
@@ -312,9 +364,9 @@ export default function ArticleCaptureForm() {
         <label>Größensystem<select value={form.size_system} onChange={e=>update('size_system',e.target.value)}><option>DE</option><option>FR</option><option>IT</option><option>UK</option><option>US</option><option>One Size</option></select></label>
         <label>DE-Vergleichsgröße<input value={form.de_size} onChange={e=>update('de_size',e.target.value)} /></label>
         <label>Internationale Größe<input value={form.international_size} onChange={e=>update('international_size',e.target.value)} placeholder="XS / S / M / L" /></label>
-        <label>Hauptfarbe<input list="color-suggestions" value={form.color} onChange={e=>update('color',e.target.value)} autoComplete="off" /><datalist id="color-suggestions">{suggestions.colors.map(value=><option key={value} value={value}/>)}</datalist></label>
+        <label>Hauptfarbe<input value={form.color} onChange={e=>update('color',e.target.value)} /></label>
         <label>Nebenfarbe<input value={form.secondary_color} onChange={e=>update('secondary_color',e.target.value)} /></label>
-        <label>Material<input list="material-suggestions" value={form.material} onChange={e=>update('material',e.target.value)} autoComplete="off" /><datalist id="material-suggestions">{suggestions.materials.map(value=><option key={value} value={value}/>)}</datalist></label>
+        <label>Material<input value={form.material} onChange={e=>update('material',e.target.value)} /></label>
         <label>Muster<input value={form.pattern} onChange={e=>update('pattern',e.target.value)} /></label>
         <label>Zustand<select value={form.condition} onChange={e=>update('condition',e.target.value)}><option>Neu mit Etikett</option><option>Neuwertig</option><option>Sehr gut</option><option>Gut</option><option>Akzeptabel</option></select></label>
         <label>Epoche<input value={form.era} onChange={e=>update('era',e.target.value)} placeholder="1990er, Y2K …" /></label>
@@ -346,7 +398,7 @@ export default function ArticleCaptureForm() {
         </fieldset>
         <label>Einkaufspreis (€)<input type="number" min="0" step="0.01" value={form.purchase_price} onChange={e=>update('purchase_price',e.target.value)} /></label>
         <label>Verkaufspreis (€)<input type="number" min="0" step="0.01" value={form.sale_price} onChange={e=>update('sale_price',e.target.value)} /></label>
-        <label>Lagerort<input list="warehouse-suggestions" value={form.warehouse_location} onChange={e=>update('warehouse_location',e.target.value)} autoComplete="off" placeholder="Bitte wählen oder neu eingeben" /><datalist id="warehouse-suggestions">{suggestions.warehouses.map(value=><option key={value} value={value}/>)}</datalist></label>
+        <label>Lagerort<select value={form.warehouse_location} onChange={e=>update('warehouse_location',e.target.value)}><option value="">Bitte wählen</option><option>Boutique</option><option>Lager A</option><option>Lager B</option><option>Schaufenster</option><option>Fotoshooting</option><option>Versand</option><option>Qualitätsprüfung</option><option>Reinigung</option><option>Retouren</option><option>Extern</option><option>Sonstiges</option></select></label>
         <label>Regal<input value={form.warehouse_rack} onChange={e=>update('warehouse_rack',e.target.value)} placeholder="z. B. B" /></label>
         <label>Fach<input value={form.warehouse_shelf} onChange={e=>update('warehouse_shelf',e.target.value)} placeholder="z. B. 14" /></label>
         <label className="full">Maße<textarea value={form.measurements} onChange={e=>update('measurements',e.target.value)} placeholder="Brustweite, Länge, Schulter, Ärmel …" /></label>

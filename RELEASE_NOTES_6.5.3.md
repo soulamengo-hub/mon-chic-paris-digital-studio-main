@@ -1,9 +1,19 @@
-# MON CHIC PARIS · Digital Studio 6.4.2
+# MON CHIC PARIS Digital Studio 6.5.3
 
-- Artikelspeicherung serverseitig abgesichert: nur freigegebene Produktfelder werden an Supabase gesendet
-- `product_images`, IDs und andere technische Felder können nicht mehr versehentlich als Spalten an `products` übertragen werden
-- dynamische Vorschläge aus bereits gespeicherten Artikeln für Marke, Material, Farbe und Lagerort
-- Vorschlagslisten sowohl bei neuen Artikeln als auch im Artikel-Editor
-- freie Neueingabe bleibt möglich; neue Werte erscheinen künftig automatisch als Vorschläge
-- Schreibweise „AI Studio“ vereinheitlicht
-- Health-Endpunkt meldet `6.4.2`
+## Fashion Intelligence – 9-Foto-Analyse
+
+- Gemeinsame KI-Analyse von bis zu 9 Fotos eines Artikels.
+- Die ersten drei Bilder werden mit hoher, die übrigen mit niedriger Detailstufe analysiert.
+- Priorisierte Auswertung von Marken-, Größen-, Material- und Pflegeetiketten.
+- `MON CHIC` und `MON CHIC PARIS` werden als Produktmarke serverseitig verworfen.
+- Erweiterte Markenliste mit verbreiteten Fashion-Marken wie H&M, Zara, Mango, COS und Uniqlo.
+- Feldbezogene Konfidenzen und Mindestschwellen für unsichere Angaben.
+- Größenfelder, Saison, Maße und sichtbare Mängel können übernommen werden.
+- Anlässe werden nur bei hoher Konfidenz übernommen.
+- Kategorie und Unterkategorie werden gegen den MON-CHIC-Katalog validiert.
+- Eine erkannte gültige Unterkategorie löst automatisch die SKU-Erzeugung aus.
+- Health-Endpunkt und Paketversion auf 6.5.3 aktualisiert.
+
+## Deployment
+
+Keine neue Datenbankmigration erforderlich. Nach dem Push auf `main` Vercel neu deployen und `/api/health` auf Version `6.5.3` prüfen.

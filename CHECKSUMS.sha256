@@ -1,108 +1,63 @@
-'use client';
-
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { categories, type CategoryName } from '@/lib/catalog';
-import type { ProductRecord } from '@/lib/types';
-
-const warehouseLocations = ['Boutique','Lager A','Lager B','Schaufenster','Fotoshooting','Versand','Qualitätsprüfung','Reinigung','Retouren','Extern','Sonstiges'];
-
-const occasionGroups = [
-  { label: 'Beruf & Alltag', options: ['Business', 'Casual', 'Chic'] },
-  { label: 'Elegant & festlich', options: ['Abendgarderobe', 'Cocktail', 'Hochzeit', 'Dinner'] },
-  { label: 'Reise & Aktiv', options: ['Urlaub', 'Strand', 'Skiurlaub', 'Sportiv', 'Outdoor'] },
-  { label: 'Besondere Anlässe', options: ['Trauerfeier', 'Religiöse Feier', 'Weihnachten', 'Silvester'] },
-] as const;
-
-export default function ArticleEditor({ id }: { id: string }) {
-  const router = useRouter();
-  const [item, setItem] = useState<ProductRecord | null>(null);
-  const [message, setMessage] = useState('');
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    fetch(`/api/products/${id}`, { cache: 'no-store' })
-      .then(async response => {
-        if (!response.ok) throw new Error(await response.text());
-        return response.json() as Promise<ProductRecord>;
-      })
-      .then(setItem)
-      .catch(error => setMessage(error instanceof Error ? error.message : 'Artikel konnte nicht geladen werden.'));
-  }, [id]);
-
-  function update(key: keyof ProductRecord, value: unknown) {
-    setItem(previous => previous ? { ...previous, [key]: value } : previous);
-  }
-
-  function toggleOccasion(value: string) {
-    if (!item) return;
-    const current = item.occasions || [];
-    update('occasions', current.includes(value) ? current.filter(entry => entry !== value) : [...current, value]);
-  }
-
-  async function save() {
-    if (!item) return;
-    setSaving(true);
-    setMessage('');
-    const response = await fetch(`/api/products/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(item),
-    });
-    setMessage(response.ok ? 'Änderungen wurden gespeichert.' : await response.text());
-    setSaving(false);
-  }
-
-  async function remove() {
-    if (!item) return;
-    if (!confirm(`Artikel ${item.sku} und zugehörige Fotos wirklich löschen?`)) return;
-    const response = await fetch(`/api/products/${id}`, { method: 'DELETE' });
-    if (response.ok) router.push('/articles');
-    else setMessage(await response.text());
-  }
-
-  if (!item) return <section className="panel empty-state"><h2>{message || 'Artikel wird geladen …'}</h2></section>;
-
-  return <div className="capture-form">
-    <section className="capture-card">
-      <div className="capture-heading"><div><span className="step-badge">1</span><h2>Fotos</h2></div><span className="photo-count">{item.product_images?.length || 0} Fotos</span></div>
-      <div className="photo-grid">{item.product_images?.map((image, index) => <article className="photo-preview" key={image.public_url}><img src={image.public_url} alt={`Foto ${index + 1}`} /></article>)}</div>
-    </section>
-    <section className="capture-card">
-      <div className="capture-heading"><div><span className="step-badge">2</span><h2>Produktdaten</h2></div></div>
-      <div className="form-grid">
-        <label>SKU<input value={item.sku} readOnly /><small>Nach dem ersten Speichern unveränderlich.</small></label>
-        <label>Status<select value={item.status || 'Entwurf'} onChange={event => update('status', event.target.value)}><option>Entwurf</option><option>Aktiv</option><option>Reserviert</option><option>Verkauft</option><option>Archiv</option></select></label>
-        <label>Marke / Designer<input value={item.brand || ''} onChange={event => update('brand', event.target.value)} /></label>
-        <label>Kategorie<select value={item.category || ''} onChange={event => { update('category', event.target.value); update('subcategory', ''); }}><option value="">Bitte wählen</option>{Object.keys(categories).map(value => <option key={value}>{value}</option>)}</select></label>
-        <label>Unterkategorie<select value={item.subcategory || ''} onChange={event => update('subcategory', event.target.value)} disabled={!item.category}><option value="">{item.category ? 'Bitte wählen' : 'Zuerst Kategorie wählen'}</option>{item.category && categories[item.category as CategoryName]?.map(value => <option key={value}>{value}</option>)}</select></label>
-        <label>Saison<select value={item.season || 'Ganzjährig'} onChange={event => update('season', event.target.value)}><option>Ganzjährig</option><option>Frühling</option><option>Sommer</option><option>Herbst</option><option>Winter</option></select></label>
-        <label>Originalgröße<input value={item.original_size || ''} onChange={event => update('original_size', event.target.value)} /></label>
-        <label>Größensystem<select value={item.size_system || 'DE'} onChange={event => update('size_system', event.target.value)}><option>DE</option><option>FR</option><option>IT</option><option>UK</option><option>US</option><option>One Size</option></select></label>
-        <label>DE-Vergleichsgröße<input value={item.de_size || ''} onChange={event => update('de_size', event.target.value)} /></label>
-        <label>Internationale Größe<input value={item.international_size || ''} onChange={event => update('international_size', event.target.value)} /></label>
-        <label>Hauptfarbe<input value={item.color || ''} onChange={event => update('color', event.target.value)} /></label>
-        <label>Nebenfarbe<input value={item.secondary_color || ''} onChange={event => update('secondary_color', event.target.value)} /></label>
-        <label>Material<input value={item.material || ''} onChange={event => update('material', event.target.value)} /></label>
-        <label>Muster<input value={item.pattern || ''} onChange={event => update('pattern', event.target.value)} /></label>
-        <label>Zustand<select value={item.condition || 'Sehr gut'} onChange={event => update('condition', event.target.value)}><option>Neu mit Etikett</option><option>Neuwertig</option><option>Sehr gut</option><option>Gut</option><option>Akzeptabel</option></select></label>
-        <label>Epoche<input value={item.era || ''} onChange={event => update('era', event.target.value)} /></label>
-        <label>MON-CHIC-Stilrichtung<input value={item.style_key || ''} onChange={event => update('style_key', event.target.value)} /></label>
-        <label>Echtheitsstatus<select value={item.authenticity_status || 'Zu prüfen'} onChange={event => update('authenticity_status', event.target.value)}><option>Zu prüfen</option><option>Geprüft</option><option>Authentisch</option><option>Nicht bestätigt</option></select></label>
-        <fieldset className="full occasion-fieldset"><legend>Anlässe</legend><div className="occasion-scroll">{occasionGroups.map(group => <section key={group.label} className="occasion-group"><h3>{group.label}</h3><div className="occasion-options">{group.options.map(option => <label key={option} className={`occasion-option${(item.occasions || []).includes(option) ? ' selected' : ''}`}><input type="checkbox" checked={(item.occasions || []).includes(option)} onChange={() => toggleOccasion(option)} /><span>{option}</span></label>)}</div></section>)}</div></fieldset>
-        <label>Einkaufspreis (€)<input type="number" min="0" step="0.01" value={item.purchase_price ?? ''} onChange={event => update('purchase_price', event.target.value ? Number(event.target.value) : null)} /></label>
-        <label>Verkaufspreis (€)<input type="number" min="0" step="0.01" value={item.sale_price ?? ''} onChange={event => update('sale_price', event.target.value ? Number(event.target.value) : null)} /></label>
-        <label>Lagerort<select value={item.warehouse_location || ''} onChange={event => update('warehouse_location', event.target.value)}><option value="">Bitte wählen</option>{warehouseLocations.map(value => <option key={value}>{value}</option>)}</select></label>
-        <label>Regal<input value={item.warehouse_rack || ''} onChange={event => update('warehouse_rack', event.target.value)} /></label>
-        <label>Fach<input value={item.warehouse_shelf || ''} onChange={event => update('warehouse_shelf', event.target.value)} /></label>
-        <label>Letzte Inventur<input type="date" value={item.last_inventory_at ? item.last_inventory_at.slice(0,10) : ''} onChange={event => update('last_inventory_at', event.target.value || null)} /></label>
-        <label>Letzte Bewegung<input value={item.last_movement_at ? new Date(item.last_movement_at).toLocaleString('de-DE') : 'Noch keine Bewegung erfasst'} readOnly /></label>
-        <label className="full">Maße<textarea value={item.measurements || ''} onChange={event => update('measurements', event.target.value)} /></label>
-        <label className="full">Besonderheiten / Mängel<textarea value={item.flaws || ''} onChange={event => update('flaws', event.target.value)} /></label>
-        <label className="full internal-field">Interne Notizen 🔒<textarea value={item.internal_notes || item.notes || ''} onChange={event => update('internal_notes', event.target.value)} /></label>
-      </div>
-    </section>
-    <div className="save-bar"><button type="button" className="danger-button" onClick={remove}>Artikel löschen</button><button type="button" className="primary-button" onClick={save} disabled={saving}>{saving ? 'Speichert …' : 'Änderungen speichern'}</button></div>
-    {message && <div className={`form-message${message.includes('gespeichert') ? ' success' : ''}`}>{message}</div>}
-  </div>;
-}
+b1fb91c4836cf23bd46b09e79ac0a4b5de6b7484de6105f1306d42dcfb9ca15a  .env.example
+89454422958afdcd28fe8c0853afcc3eb310a8d3252f98ffcae1ee2277254b18  .gitignore
+3a951f66e7e0f3e2dd1832473a871357c4a507b51100636b73bcf6ff0dd78b6c  .npmrc
+3d8b39e446ef0cc955f4d3b1087e0ba58b1e8ee4d6947f5530ba0a5bcb01edb5  DEPLOYMENT.md
+ba2be3ea03976501d88802b45b6f51b00ddf3dba0b37c5dbcea0979177e92298  DEPLOYMENT_6.5.6.md
+ff3995803ff959bcbc336aa305a38f93d89ce0abc437b406ee3651c32dd28077  README.md
+cf15900745d419abd7537d70bf19a612800d96f905241eb685cd25a95ddd3dca  RELEASE_NOTES_6.2.6.md
+9290ef9b92d45772ec66197ef114aa86dd70d73e0c403edd1a07285f5f9b2cd7  RELEASE_NOTES_6.3.1.md
+f11402b069f51a1535050c4d6c7ef36d545eaf576d3705fca677542ad6b91aa8  RELEASE_NOTES_6.3.2.md
+e1d1e9f36dcecdc5ca3fb5ab3fd870115f373e3e96fd9f82e41ffc09e37d50b4  RELEASE_NOTES_6.3.md
+fb1bcad99994322d2c115ec6266844200cd2f9186c478d2ba67dd59a2e499c8c  RELEASE_NOTES_6.4.0.md
+34d12bc7a6b50a5fd1080819aa9f09fea2ed2d22a84e6115dfecfcce85581118  RELEASE_NOTES_6.4.1.md
+ab0a3699f19ea053c1cb4802676376f6678753ffea007b22f0053f6164199a06  RELEASE_NOTES_6.4.2.md
+d44e41bd105234b64e11140c75acc9891e7b652c75cb4f4824f0631ab5c3cb28  RELEASE_NOTES_6.5.3.md
+c332618cf6c885bd1ef5fe5be31859ab41fc7b0eb7c626fe64fd86ac55b37100  RELEASE_NOTES_6.5.5.md
+b5f1ad40114f20a7c371ee69e1bfd2a624132708ac1ef72ae0a539bf0d861177  RELEASE_NOTES_6.5.6.md
+5af865d882a46777ddc0f98c938be5e777ead875002407ff0777c21a2c14ba6d  VERIFICATION_REPORT.md
+b80d21197cbb7fe70e50edb8f0eece1322937413916524acd8cd200adccf6d03  VERIFICATION_REPORT_6.5.6.md
+d17f97d5453d8d9fca51845822b659dfc31de89da2602a539a51137bdcec740c  app/ai-studio/page.tsx
+7ece006679e106f37d633e9108a5e1cc7065d0babffd59aa6bf9d42ba293aa25  app/analytics/page.tsx
+00635e206bcd532ac577d98186f1db5c6a1299f170c389b9486092f3874e1a3e  app/api/ai/analyze/route.ts
+848f04ebfcb6cb364c3254f7d3d85842a4fa8a0080ab42e116300ee62d3c68b2  app/api/health/route.ts
+184bee0a63447006f4bd79ac76ae96401cb1650924cfffe9823469cccaccc326  app/api/products/[id]/route.ts
+679b02728428dc4afc08e514cd76f2505d8f1abcd70ed010e5f57772d5c31190  app/api/products/route.ts
+a4ae3128baee3313e518ff08fb9c80f245b3ac28dad1a6eb9e63f515d28e74a1  app/api/sales/route.ts
+ae5402010ea4e4af8272807b3cc836555c3def850644619c51b1641829dd0da4  app/api/sku/route.ts
+86f475d8c6d9fecc37cd80698fa5ba78ac24672e24ea9707379612672829b177  app/api/suggestions/route.ts
+287ed65af957c0f54ce4e56697896f82036ce0af7767b13b7f8f5796c2856142  app/articles/[id]/page.tsx
+fb8dce3d591215e4372f46cbc32ddfb453be0ee408a52a7ee4535223a62e1356  app/articles/new/page.tsx
+17e47885e78d72807a4b111cf536059b1abed004c1127d87762aa579b8a330bc  app/articles/page.tsx
+75d000cfa9391f665b7475dd372ace9757c9847b601276f1f069ed6b46a06646  app/content-studio/page.tsx
+076a7399ea2ce39976b8da4e374a6eeb7ea67d521d78edbe82358987cd88a2f9  app/crm/page.tsx
+af78035f12ae3e5c9f30d971d946bf2047f6cc8d74d6c1baf1e12d723b22e2e4  app/finance/page.tsx
+38d01f343caa245897b8a42d4d9bbfdb5edf960885956aee21f6480005b91009  app/globals.css
+905dcfffc7109ed538b8fc82465691506377c9d61173f01242f25571a211ebdb  app/inventory/page.tsx
+248619c537ca3e939034c5cf12e72e27f987f1671038899825c6b07dcb32f23c  app/layout.tsx
+460095fe454f5cee69da96a625a479e4bc4fcf0240ca2c73a5b91645fed66e9d  app/page.tsx
+ffee41ae3877eb899c96a54e24d12d106c79ef2371a603757c9102d120a22e60  app/sales/page.tsx
+70762239975ac3380af44d5b7b1c4f4d6e27f9b63f13a8114318ae0ae470cc98  app/settings/page.tsx
+6b35bdad25ebaca23aac5268c34e00e6785bc56bede613f27ebf8185da508c5a  app/showcase/page.tsx
+42ed746bcb19517f60435446283fadc88b5f201eb90bcb0c1c057cfbd0ea20c8  components/AppShell.tsx
+08e45da7ded18522d7dfcc26a7539ef61d282aab05f4099ac21c12889501a823  components/ArticleCaptureForm.tsx
+8c39962203d18822d5583f8658fded0f8b1202990f187265b55c444fb238d954  components/ArticleEditor.tsx
+48945a1fa47787953af6ee45a8606039150dbf5c565aecce8a96d4ad92e0ff23  components/ArticleList.tsx
+35f9a18180bd681dc0f6b100eb54eb1efe7f1f6724e48849d0a1365ab4f6ad11  components/Dashboard.tsx
+562307d35790de4f7940c71082d899796e568319baa2668dfb7f5d790cde2654  components/Icons.tsx
+46d6d0953abd1a6336d386ae551d04930e6a2ffd66a2ba406dcc74a43880592b  components/InventoryImport.tsx
+34628be032be3a9a402275b61673e30ea40031b35d2d64ae117ed1425ea92ba3  components/SalesManager.tsx
+6110078bfc76ff06121af149f8dba22a05fb707cc259010fbfda6c361018551e  lib/catalog.ts
+86d6d8eaad52662be5d782e3d90d67692cb3ebaf6ed09c15af708b53d532a668  lib/product-fields.ts
+f08d098be3feb477eb2f4195a3edd7098c8004a7d4dc0ad33148283743f681aa  lib/supabase.ts
+2f8fc0d2eb3e6b4145065b4093e31f45e6cbaabde76468b6a720868766cac855  lib/types.ts
+7b550dda9686c16f36a17bf9051d5dbf31e98555b30d114ac49fc49a1e712651  next-env.d.ts
+f58d1bfe97bdb1512ca4abfed984efb2700515b7defbec6dcf04a30321bf09e7  next.config.js
+9a17e3f8a6207d3ba20465513b23f3c973de83ba3386c8e71839e8b721e0051d  package-lock.json
+e482ed9686b258ce5744ad7d9bf390e893587538240fec87eb2290e861496a65  package.json
+4d4c1a6120e23e22396e7e866b0898c246dff1b1a218ad31f06cae79137da936  public/mon-chic-logo-master.png
+5401289619bc80b090277d9f11bf40e7a9406c16629eb98f6412496ba861403e  public/mon-chic-logo.png
+19bf6ba619b4372db49f28b3136b1ae1d9540b134101a52499171260bbee2302  supabase/migration_5_0.sql
+963727292317a6c1fc8263cf73d73374bf3a296994ff2fae13309cffd8ac8e7b  supabase/migration_5_1_occasions.sql
+253bbeadf294a4afd68c40d5c80eabbfe0ebf6b5e001f67006339b32bcb89671  supabase/migration_6_3.sql
+36cc19321d59060ae5658f6e935f73ad4a5fa1d49f86bbfec9fab7c90428be4f  supabase/migration_6_3_1_storage_history.sql
+5b54a67cae7e80db1f95f3168cc6b5cca8ac2bb3077e1393e3461f79069061f4  tsconfig.json
