@@ -1,4 +1,4 @@
-# MON CHIC PARIS · Digital Studio 6.5.5
+# MON CHIC PARIS · Digital Studio 6.5.9
 
 Produktionsstand mit Fashion Intelligence und vollständiger Artikel-DNA.
 
