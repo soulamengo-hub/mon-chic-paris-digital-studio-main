@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { CameraIcon, UploadIcon } from './Icons';
-import { categories, designerSuggestions, colorCatalog, type CategoryName } from '@/lib/catalog';
+import { categories, designerSuggestions, colorCatalog, styleCatalog, type CategoryName } from '@/lib/catalog';
 import { deriveCareInstructions } from '@/lib/care-instructions';
 
 type PhotoItem = { file: File; preview: string };
@@ -399,7 +399,7 @@ export default function ArticleCaptureForm() {
         <label>Muster<input value={form.pattern} onChange={e=>update('pattern',e.target.value)} /></label>
         <label>Zustand<select value={form.condition} onChange={e=>update('condition',e.target.value)}><option>Neu mit Etikett</option><option>Neuwertig</option><option>Sehr gut</option><option>Gut</option><option>Akzeptabel</option></select></label>
         <label>Epoche<input value={form.era} onChange={e=>update('era',e.target.value)} placeholder="1990er, Y2K …" /></label>
-        <label>MON-CHIC-Stilrichtung<input value={form.style_key} onChange={e=>update('style_key',e.target.value)} /></label>
+        <label>MON-CHIC-Stilrichtung<select value={form.style_key} onChange={e=>update('style_key',e.target.value)}><option value="">Bitte wählen</option>{styleCatalog.map(s=><option key={s.key} value={s.key}>{s.label}</option>)}</select></label>
         <label>Echtheitsstatus<select value={form.authenticity_status} onChange={e=>update('authenticity_status',e.target.value)}><option>Zu prüfen</option><option>Geprüft</option><option>Authentisch</option><option>Nicht bestätigt</option></select></label>
         <fieldset className="full occasion-fieldset">
           <legend>Anlässe</legend>
