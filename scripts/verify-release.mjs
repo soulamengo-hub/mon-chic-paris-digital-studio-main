@@ -14,7 +14,7 @@ const allowedRootFiles = new Set([
   '.env.example','.gitignore','.npmrc','CHECKSUMS.sha256','DEPLOYMENT.md','DEPLOYMENT_6.5.6.md',
   'FILE_MANIFEST.txt','README.md','RELEASE_NOTES_6.2.6.md','RELEASE_NOTES_6.3.1.md',
   'RELEASE_NOTES_6.3.2.md','RELEASE_NOTES_6.3.md','RELEASE_NOTES_6.4.0.md','RELEASE_NOTES_6.4.1.md',
-  'RELEASE_NOTES_6.4.2.md','RELEASE_NOTES_6.5.3.md','RELEASE_NOTES_6.5.5.md','RELEASE_NOTES_6.5.6.md','RELEASE_NOTES_6.5.7.md','RELEASE_NOTES_6.5.9.md',
+  'RELEASE_NOTES_6.4.2.md','RELEASE_NOTES_6.5.3.md','RELEASE_NOTES_6.5.5.md','RELEASE_NOTES_6.5.6.md','RELEASE_NOTES_6.5.7.md','RELEASE_NOTES_6.5.9.md','RELEASE_NOTES_Stilrichtungen.md',
   'VERIFICATION_REPORT.md','VERIFICATION_REPORT_6.5.6.md','VERIFICATION_REPORT_6.5.9.md','VERIFICATION_REPORT_6.5.6_CLEAN.md','next-env.d.ts','next.config.js',
   'package-lock.json','package.json','tsconfig.json'
 ]);
