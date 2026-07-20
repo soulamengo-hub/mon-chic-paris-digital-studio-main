@@ -1,8 +1,9 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { CameraIcon, UploadIcon } from './Icons';
-import { categories, designerSuggestions, type CategoryName } from '@/lib/catalog';
+import { categories, designerSuggestions, colorCatalog, type CategoryName } from '@/lib/catalog';
+import { deriveCareInstructions } from '@/lib/care-instructions';
 
 type PhotoItem = { file: File; preview: string };
 
@@ -12,7 +13,7 @@ const ALLOWED_IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'];
 type FormState = {
   sku: string; brand: string; category: string; subcategory: string; season: string;
   original_size: string; size_system: string; de_size: string; international_size: string;
-  color: string; secondary_color: string; material: string; pattern: string; condition: string;
+  color: string; secondary_color: string; color_note: string; material: string; care_instructions: string; pattern: string; condition: string;
   era: string; style_key: string; authenticity_status: string; purchase_price: string;
   sale_price: string; occasions: string[]; measurements: string; flaws: string; notes: string; warehouse_location: string; warehouse_rack: string; warehouse_shelf: string; status: string;
 };
@@ -50,7 +51,7 @@ async function requestSku(subcategory: string) {
 
 const initialState: FormState = {
   sku: '', brand: '', category: '', subcategory: '', season: 'Ganzjährig', original_size: '', size_system: 'DE',
-  de_size: '', international_size: '', color: '', secondary_color: '', material: '', pattern: '', condition: 'Sehr gut',
+  de_size: '', international_size: '', color: '', secondary_color: '', color_note: '', material: '', care_instructions: '', pattern: '', condition: 'Sehr gut',
   era: '', style_key: '', authenticity_status: 'Zu prüfen', purchase_price: '', sale_price: '', occasions: [], measurements: '', flaws: '', notes: '', warehouse_location: '', warehouse_rack: '', warehouse_shelf: '', status: 'Entwurf'
 };
 
@@ -67,8 +68,19 @@ export default function ArticleCaptureForm() {
 
   const photoCount = useMemo(() => `${photos.length}/9 Fotos`, [photos.length]);
 
+  useEffect(() => {
+    fetch('/api/ai/budget', { cache: 'no-store' })
+      .then(response => response.ok ? response.json() : null)
+      .then(data => { if (data) setAiBudget(data); })
+      .catch(() => {});
+  }, []);
+
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm(prev => ({ ...prev, [key]: value }));
+  }
+
+  function updateMaterial(value: string) {
+    setForm(prev => ({ ...prev, material: value, care_instructions: deriveCareInstructions(value) }));
   }
 
 
@@ -175,13 +187,16 @@ export default function ArticleCaptureForm() {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imageDataUrls }),
       });
       const result = await response.json();
+      if (result.budget) setAiBudget(result.budget);
       if (!response.ok) throw new Error(result.error || 'KI-Analyse fehlgeschlagen.');
+      if (result.usage) setAiUsage(result.usage);
       setAiDraft({
         brand: result.brand,
         category: result.category,
         subcategory: result.subcategory,
         color: result.color,
         secondary_color: result.secondary_color,
+        color_note: result.color_note,
         material: result.material,
         pattern: result.pattern,
         condition: result.condition,
@@ -221,6 +236,10 @@ export default function ArticleCaptureForm() {
       }
       return;
     }
+    if (key === 'material' && typeof value === 'string') {
+      setForm(prev => ({ ...prev, material: value, care_instructions: deriveCareInstructions(value) }));
+      return;
+    }
     setForm(prev => ({ ...prev, [key]: value }));
   }
 
@@ -232,7 +251,14 @@ export default function ArticleCaptureForm() {
     const inferredCategory = subcategory
       ? Object.entries(categories).find(([, values]) => (values as readonly string[]).includes(subcategory))?.[0]
       : undefined;
-    setForm(prev => ({ ...prev, ...validSuggestions, ...(inferredCategory ? { category: inferredCategory } : {}), ...(subcategory ? { sku: '' } : {}) } as FormState));
+    const materialSuggestion = typeof suggestions.material === 'string' ? suggestions.material : undefined;
+    setForm(prev => ({
+      ...prev,
+      ...validSuggestions,
+      ...(inferredCategory ? { category: inferredCategory } : {}),
+      ...(subcategory ? { sku: '' } : {}),
+      ...(materialSuggestion ? { care_instructions: deriveCareInstructions(materialSuggestion) } : {}),
+    } as FormState));
     if (subcategory) {
       try {
         const sku = await requestSku(subcategory);
@@ -256,7 +282,8 @@ export default function ArticleCaptureForm() {
   const aiFields: Array<{ key: keyof FormState; label: string }> = [
     { key: 'brand', label: 'Marke' }, { key: 'category', label: 'Kategorie' },
     { key: 'subcategory', label: 'Unterkategorie' }, { key: 'color', label: 'Hauptfarbe' },
-    { key: 'secondary_color', label: 'Nebenfarbe' }, { key: 'material', label: 'Material' },
+    { key: 'secondary_color', label: 'Nebenfarbe' }, { key: 'color_note', label: 'Farbhinweis' },
+    { key: 'material', label: 'Material' },
     { key: 'pattern', label: 'Muster' }, { key: 'condition', label: 'Zustand' },
     { key: 'season', label: 'Saison' }, { key: 'original_size', label: 'Originalgröße' },
     { key: 'size_system', label: 'Größensystem' }, { key: 'de_size', label: 'DE-Größe' },
@@ -364,9 +391,11 @@ export default function ArticleCaptureForm() {
         <label>Größensystem<select value={form.size_system} onChange={e=>update('size_system',e.target.value)}><option>DE</option><option>FR</option><option>IT</option><option>UK</option><option>US</option><option>One Size</option></select></label>
         <label>DE-Vergleichsgröße<input value={form.de_size} onChange={e=>update('de_size',e.target.value)} /></label>
         <label>Internationale Größe<input value={form.international_size} onChange={e=>update('international_size',e.target.value)} placeholder="XS / S / M / L" /></label>
-        <label>Hauptfarbe<input value={form.color} onChange={e=>update('color',e.target.value)} /></label>
-        <label>Nebenfarbe<input value={form.secondary_color} onChange={e=>update('secondary_color',e.target.value)} /></label>
-        <label>Material<input value={form.material} onChange={e=>update('material',e.target.value)} /></label>
+        <label>Hauptfarbe<select value={form.color} onChange={e=>update('color',e.target.value)}><option value="">Bitte wählen</option>{colorCatalog.map(c=><option key={c}>{c}</option>)}</select></label>
+        <label>Nebenfarbe<select value={form.secondary_color} onChange={e=>update('secondary_color',e.target.value)}><option value="">Keine</option>{colorCatalog.map(c=><option key={c}>{c}</option>)}</select></label>
+        <label>Farbhinweis (optional)<input value={form.color_note} onChange={e=>update('color_note',e.target.value)} placeholder="z. B. Dunkelblau mit roten Streifen" /></label>
+        <label>Material<input value={form.material} onChange={e=>updateMaterial(e.target.value)} /></label>
+        <label className="full">Pflegehinweise<textarea value={form.care_instructions} onChange={e=>update('care_instructions',e.target.value)} placeholder="Wird automatisch aus dem Material abgeleitet, kann angepasst werden." /><small>Regelbasiert aus dem Material abgeleitet, nicht durch KI. Bitte vor dem Speichern prüfen.</small></label>
         <label>Muster<input value={form.pattern} onChange={e=>update('pattern',e.target.value)} /></label>
         <label>Zustand<select value={form.condition} onChange={e=>update('condition',e.target.value)}><option>Neu mit Etikett</option><option>Neuwertig</option><option>Sehr gut</option><option>Gut</option><option>Akzeptabel</option></select></label>
         <label>Epoche<input value={form.era} onChange={e=>update('era',e.target.value)} placeholder="1990er, Y2K …" /></label>

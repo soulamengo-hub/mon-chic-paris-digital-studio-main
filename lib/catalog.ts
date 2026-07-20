@@ -14,3 +14,9 @@ export const skuCodes: Record<string, string> = {
 
 export const designerSuggestions = ['Alaïa','Balenciaga','Burberry','Celine','Chanel','Christian Dior','Fendi','Givenchy','Gucci','Hermès','Isabel Marant','Loewe','Louis Vuitton','Max Mara','Miu Miu','Moncler','Prada','Saint Laurent','Sandro','Valentino','Versace'];
 export type CategoryName = keyof typeof categories;
+
+// Kontrollierter Farbkatalog (6.5.7): Die KI darf nur diese Werte für Haupt-/Nebenfarbe
+// vorschlagen. Ein zusätzlicher Freitext-Hinweis (z. B. "Dunkelblau mit roten Streifen")
+// wird separat in color_note gespeichert, ohne den kontrollierten Wert zu ersetzen.
+export const colorCatalog = ['Schwarz','Weiß','Beige','Braun','Blau','Rot','Grün','Grau','Rosa','Violett','Gold','Silber','Mehrfarbig'] as const;
+export type ColorName = typeof colorCatalog[number];
