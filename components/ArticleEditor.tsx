@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { categories, colorCatalog, type CategoryName } from '@/lib/catalog';
+import { categories, colorCatalog, styleCatalog, type CategoryName } from '@/lib/catalog';
 import { deriveCareInstructions } from '@/lib/care-instructions';
 import type { ProductRecord } from '@/lib/types';
 
@@ -90,7 +90,7 @@ export default function ArticleEditor({ id }: { id: string }) {
         <label>Muster<input value={item.pattern || ''} onChange={event => update('pattern', event.target.value)} /></label>
         <label>Zustand<select value={item.condition || 'Sehr gut'} onChange={event => update('condition', event.target.value)}><option>Neu mit Etikett</option><option>Neuwertig</option><option>Sehr gut</option><option>Gut</option><option>Akzeptabel</option></select></label>
         <label>Epoche<input value={item.era || ''} onChange={event => update('era', event.target.value)} /></label>
-        <label>MON-CHIC-Stilrichtung<input value={item.style_key || ''} onChange={event => update('style_key', event.target.value)} /></label>
+        <label>MON-CHIC-Stilrichtung<select value={item.style_key || ''} onChange={event => update('style_key', event.target.value)}><option value="">Bitte wählen</option>{styleCatalog.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}</select></label>
         <label>Echtheitsstatus<select value={item.authenticity_status || 'Zu prüfen'} onChange={event => update('authenticity_status', event.target.value)}><option>Zu prüfen</option><option>Geprüft</option><option>Authentisch</option><option>Nicht bestätigt</option></select></label>
         <fieldset className="full occasion-fieldset"><legend>Anlässe</legend><div className="occasion-scroll">{occasionGroups.map(group => <section key={group.label} className="occasion-group"><h3>{group.label}</h3><div className="occasion-options">{group.options.map(option => <label key={option} className={`occasion-option${(item.occasions || []).includes(option) ? ' selected' : ''}`}><input type="checkbox" checked={(item.occasions || []).includes(option)} onChange={() => toggleOccasion(option)} /><span>{option}</span></label>)}</div></section>)}</div></fieldset>
         <label>Einkaufspreis (€)<input type="number" min="0" step="0.01" value={item.purchase_price ?? ''} onChange={event => update('purchase_price', event.target.value ? Number(event.target.value) : null)} /></label>
