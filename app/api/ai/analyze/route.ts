@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { categories, designerSuggestions, colorCatalog } from '@/lib/catalog';
+import { categories, designerSuggestions, colorCatalog, styleCatalog } from '@/lib/catalog';
 import { supabaseServiceHeaders, getServiceSupabaseConfig } from '@/lib/supabase';
 import { estimateCostEur, summarizeBudget, currentMonthStartIso } from '@/lib/ai-budget';
 
@@ -22,7 +22,7 @@ for (const [category, subcategories] of Object.entries(categories)) {
   for (const subcategory of subcategories) subcategoryToCategory.set(subcategory, category);
 }
 
-type ConfidenceMap = Partial<Record<
+type ConfidenceMap = Partial<Record
   'brand' | 'category' | 'subcategory' | 'color' | 'secondary_color' | 'material' | 'pattern' |
   'condition' | 'season' | 'original_size' | 'size_system' | 'de_size' | 'international_size' |
   'era' | 'style_key' | 'occasions' | 'measurements' | 'flaws' | 'notes', number
@@ -108,11 +108,21 @@ function parseJson(text: string): AnalysisResult {
     result.category = category;
   }
 
-  const safeFields: Array<keyof Pick<AnalysisResult, 'pattern' | 'era' | 'style_key' | 'notes'>> =
-    ['pattern', 'era', 'style_key', 'notes'];
+  const safeFields: Array<keyof Pick<AnalysisResult, 'pattern' | 'era' | 'notes'>> =
+    ['pattern', 'era', 'notes'];
   for (const field of safeFields) {
     const value = cleanString(raw[field]);
     if (value && confidenceFor(raw, field) >= 0.55) result[field] = value;
+  }
+
+  // Stilrichtung: nur Werte aus dem MON-CHIC-Stilkatalog (MC-04-04) übernehmen.
+  // Die KI darf sowohl den internen Schlüssel als auch den Anzeigenamen liefern.
+  const rawStyle = cleanString(raw.style_key);
+  if (rawStyle) {
+    const match = styleCatalog.find(
+      style => style.key.toLowerCase() === rawStyle.toLowerCase() || style.label.toLowerCase() === rawStyle.toLowerCase(),
+    );
+    if (match && confidenceFor(raw, 'style_key') >= 0.55) result.style_key = match.key;
   }
 
   // Farbe: nur Werte aus dem kontrollierten Katalog übernehmen (nicht frei erfinden).
@@ -253,6 +263,7 @@ Erlaubte Zustände: ${allowedConditions.join(', ')}.
 Erlaubte Saisons: ${allowedSeasons.join(', ')}.
 Erlaubte Größensysteme: ${allowedSizeSystems.join(', ')}.
 Erlaubter Farbkatalog: ${colorCatalog.join(', ')}.
+Erlaubte MON-CHIC-Stilrichtungen (style_key MUSS exakt einer dieser internen Schlüssel sein, keine eigenen erfinden): ${styleCatalog.map(style => `${style.key} = ${style.label}`).join('; ')}.
 
 Antworte ausschließlich als JSON-Objekt. Zulässige Felder:
 brand, category, subcategory, color, secondary_color, color_note, material, pattern, condition, season, original_size, size_system, de_size, international_size, era, style_key, occasions, measurements, flaws, notes, confidence.
