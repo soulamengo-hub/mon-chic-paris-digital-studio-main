@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   ArticleIcon, BellIcon, BoxIcon, CartIcon, ChartIcon, EuroIcon, GearIcon,
-  HomeIcon, PenIcon, SparkIcon, UsersIcon,
+  HomeIcon, PenIcon, QrIcon, SparkIcon, UsersIcon,
 } from './Icons';
 
 const items = [
@@ -36,6 +36,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
         <div className="header-actions">
+          <Link href="/articles/scan" className="icon-button" aria-label="Artikel per QR-Code öffnen"><QrIcon /></Link>
           <button className="icon-button" aria-label="Benachrichtigungen"><BellIcon /></button>
           <Link href="/ai-studio" className="ai-pill"><SparkIcon /> AI Studio</Link>
           <div className="profile">

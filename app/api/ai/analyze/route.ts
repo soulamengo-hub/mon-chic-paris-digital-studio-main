@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { categories, designerSuggestions, colorCatalog, styleCatalog } from '@/lib/catalog';
 import { supabaseServiceHeaders, getServiceSupabaseConfig } from '@/lib/supabase';
 import { estimateCostEur, summarizeBudget, currentMonthStartIso } from '@/lib/ai-budget';
+import { deriveDeSizeGenderNeutral } from '@/lib/size-conversion';
 
 export const runtime = 'nodejs';
 
@@ -13,7 +14,7 @@ const allowedOccasions = [
   'Strand','Skiurlaub','Sportiv','Outdoor','Trauerfeier','Religiöse Feier','Weihnachten','Silvester',
 ];
 const allowedConditions = ['Neu mit Etikett','Neuwertig','Sehr gut','Gut','Akzeptabel'];
-const allowedSeasons = ['Ganzjährig','Frühling','Sommer','Herbst','Winter'];
+const allowedSeasons = ['Ganzjährig','Frühling','Sommer','Herbst','Winter','Frühling-Sommer','Frühling-Herbst','Herbst-Winter'];
 const allowedSizeSystems = ['DE','FR','IT','UK','US','One Size'];
 
 const categoryNames = Object.keys(categories);
@@ -22,7 +23,7 @@ for (const [category, subcategories] of Object.entries(categories)) {
   for (const subcategory of subcategories) subcategoryToCategory.set(subcategory, category);
 }
 
-type ConfidenceMap = Partial<Record
+type ConfidenceMap = Partial<Record<
   'brand' | 'category' | 'subcategory' | 'color' | 'secondary_color' | 'material' | 'pattern' |
   'condition' | 'season' | 'original_size' | 'size_system' | 'de_size' | 'international_size' |
   'era' | 'style_key' | 'occasions' | 'measurements' | 'flaws' | 'notes', number
@@ -149,6 +150,11 @@ function parseJson(text: string): AnalysisResult {
   if (sizeSystem && allowedSizeSystems.includes(sizeSystem) && confidenceFor(raw, 'size_system') >= 0.65) result.size_system = sizeSystem;
   const deSize = cleanString(raw.de_size);
   if (deSize && confidenceFor(raw, 'de_size') >= 0.65) result.de_size = deSize;
+  // Regelbasierte Umrechnung hat Vorrang vor der KI-Schätzung: Ist das
+  // Größensystem bekannt (z. B. FR), wird die tatsächliche DE-Größe fest berechnet
+  // statt von der KI geschätzt — das Originalformat (original_size) bleibt unverändert.
+  const derivedDeSize = deriveDeSizeGenderNeutral(result.size_system, result.original_size);
+  if (derivedDeSize) result.de_size = derivedDeSize;
   const internationalSize = cleanString(raw.international_size);
   if (internationalSize && confidenceFor(raw, 'international_size') >= 0.65) result.international_size = internationalSize;
 

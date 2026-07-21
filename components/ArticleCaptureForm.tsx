@@ -1,20 +1,22 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ClipboardEvent } from 'react';
 import { CameraIcon, UploadIcon } from './Icons';
 import { categories, designerSuggestions, colorCatalog, styleCatalog, type CategoryName } from '@/lib/catalog';
 import { deriveCareInstructions } from '@/lib/care-instructions';
+import { deriveDeSize } from '@/lib/size-conversion';
+import { uploadProductPhoto, uploadReferencePhoto } from '@/lib/photo-upload';
 
 type PhotoItem = { file: File; preview: string };
 
-const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
 const ALLOWED_IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'];
 
 type FormState = {
   sku: string; brand: string; category: string; subcategory: string; season: string;
   original_size: string; size_system: string; de_size: string; international_size: string;
   color: string; secondary_color: string; color_note: string; material: string; care_instructions: string; pattern: string; condition: string;
-  era: string; style_key: string; authenticity_status: string; purchase_price: string;
+  era: string; style_key: string; authenticity_status: string; purchase_price: string; gender: string;
+  original_retail_value: string; supplier_order_number: string; supplier_reference: string;
   sale_price: string; occasions: string[]; measurements: string; flaws: string; notes: string; warehouse_location: string; warehouse_rack: string; warehouse_shelf: string; status: string;
 };
 
@@ -52,7 +54,7 @@ async function requestSku(subcategory: string) {
 const initialState: FormState = {
   sku: '', brand: '', category: '', subcategory: '', season: 'Ganzjährig', original_size: '', size_system: 'DE',
   de_size: '', international_size: '', color: '', secondary_color: '', color_note: '', material: '', care_instructions: '', pattern: '', condition: 'Sehr gut',
-  era: '', style_key: '', authenticity_status: 'Zu prüfen', purchase_price: '', sale_price: '', occasions: [], measurements: '', flaws: '', notes: '', warehouse_location: '', warehouse_rack: '', warehouse_shelf: '', status: 'Entwurf'
+  era: '', style_key: '', authenticity_status: 'Zu prüfen', purchase_price: '', gender: 'Damen', original_retail_value: '', supplier_order_number: '', supplier_reference: '', sale_price: '', occasions: [], measurements: '', flaws: '', notes: '', warehouse_location: '', warehouse_rack: '', warehouse_shelf: '', status: 'Entwurf'
 };
 
 export default function ArticleCaptureForm() {
@@ -83,6 +85,14 @@ export default function ArticleCaptureForm() {
     setForm(prev => ({ ...prev, material: value, care_instructions: deriveCareInstructions(value) }));
   }
 
+  function updateSize(partial: Partial<Pick<FormState, 'original_size' | 'size_system' | 'gender' | 'subcategory'>>) {
+    setForm(prev => {
+      const next = { ...prev, ...partial };
+      const derived = deriveDeSize(next.size_system, next.original_size, next.gender, next.subcategory);
+      return derived ? { ...next, de_size: derived } : next;
+    });
+  }
+
 
   function toggleOccasion(value: string) {
     setForm(prev => ({
@@ -98,16 +108,6 @@ export default function ArticleCaptureForm() {
     return file.type.startsWith('image/') || ALLOWED_IMAGE_EXTENSIONS.includes(extension);
   }
 
-  function inferMimeType(file: File) {
-    if (file.type) return file.type;
-    const extension = file.name.split('.').pop()?.toLowerCase();
-    const mimeByExtension: Record<string, string> = {
-      jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp',
-      heic: 'image/heic', heif: 'image/heif',
-    };
-    return extension ? mimeByExtension[extension] || 'application/octet-stream' : 'application/octet-stream';
-  }
-
   function addFiles(fileList: FileList | null) {
     if (!fileList) return;
     const files = Array.from(fileList).filter(isSupportedImage);
@@ -117,51 +117,22 @@ export default function ArticleCaptureForm() {
     if (files.length > remaining) setMessage(`Maximal 9 Fotos möglich. ${files.length - remaining} Foto(s) wurden nicht hinzugefügt.`);
   }
 
-  function sanitizeFileName(name: string) {
-    return name.toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/-+/g, '-');
+  const [referencePhotoFile, setReferencePhotoFile] = useState<File | null>(null);
+  const [referencePhotoPreview, setReferencePhotoPreview] = useState('');
+
+  function pickReferencePhoto(file: File | null) {
+    if (referencePhotoPreview) URL.revokeObjectURL(referencePhotoPreview);
+    setReferencePhotoFile(file);
+    setReferencePhotoPreview(file ? URL.createObjectURL(file) : '');
   }
 
-  function getPublicSupabaseConfig() {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '');
-    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    if (!url || !key) throw new Error('Supabase-Verbindung fehlt. Bitte Vercel-Variablen prüfen.');
-    return { url, key };
-  }
-
-  async function uploadPhotoDirect(file: File, productId: string, sortOrder: number) {
-    if (file.size > MAX_PHOTO_BYTES) {
-      throw new Error(`Foto „${file.name}“ ist größer als 8 MB. Bitte auf dem iPhone als kleinere Datei exportieren.`);
+  function handleReferencePhotoPaste(event: ClipboardEvent) {
+    const item = Array.from(event.clipboardData?.items || []).find(entry => entry.type.startsWith('image/'));
+    const file = item?.getAsFile();
+    if (file) {
+      event.preventDefault();
+      pickReferencePhoto(file);
     }
-
-    const { url, key } = getPublicSupabaseConfig();
-    const mimeType = inferMimeType(file);
-    const fileName = sanitizeFileName(file.name || `foto-${sortOrder + 1}.jpg`);
-    const storagePath = `${productId}/${Date.now()}-${sortOrder}-${fileName}`;
-    const encodedPath = storagePath.split('/').map(encodeURIComponent).join('/');
-    const authHeaders = { apikey: key, Authorization: `Bearer ${key}` };
-
-    const uploadResponse = await fetch(`${url}/storage/v1/object/product-images/${encodedPath}`, {
-      method: 'POST',
-      headers: { ...authHeaders, 'Content-Type': mimeType, 'x-upsert': 'false' },
-      body: file,
-    });
-    if (!uploadResponse.ok) throw new Error(`Foto-Upload fehlgeschlagen: ${await uploadResponse.text()}`);
-
-    const publicUrl = `${url}/storage/v1/object/public/product-images/${encodedPath}`;
-    const metadataResponse = await fetch(`${url}/rest/v1/product_images`, {
-      method: 'POST',
-      headers: { ...authHeaders, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-      body: JSON.stringify({
-        product_id: productId,
-        storage_path: storagePath,
-        public_url: publicUrl,
-        file_name: file.name,
-        mime_type: mimeType,
-        size_bytes: file.size,
-        sort_order: sortOrder,
-      }),
-    });
-    if (!metadataResponse.ok) throw new Error(`Bild-Metadaten konnten nicht gespeichert werden: ${await metadataResponse.text()}`);
   }
 
   async function photoToAnalysisDataUrl(file: File) {
@@ -227,7 +198,10 @@ export default function ArticleCaptureForm() {
     if (value === undefined || value === null) return;
     if (key === 'subcategory' && typeof value === 'string') {
       const category = Object.entries(categories).find(([, values]) => (values as readonly string[]).includes(value))?.[0] || aiDraft.category || form.category;
-      setForm(prev => ({ ...prev, category, subcategory: value, sku: '' }));
+      setForm(prev => {
+        const derived = deriveDeSize(prev.size_system, prev.original_size, prev.gender, value);
+        return { ...prev, category, subcategory: value, sku: '', ...(derived ? { de_size: derived } : {}) };
+      });
       try {
         const sku = await requestSku(value);
         setForm(prev => prev.subcategory === value ? { ...prev, sku } : prev);
@@ -252,13 +226,21 @@ export default function ArticleCaptureForm() {
       ? Object.entries(categories).find(([, values]) => (values as readonly string[]).includes(subcategory))?.[0]
       : undefined;
     const materialSuggestion = typeof suggestions.material === 'string' ? suggestions.material : undefined;
-    setForm(prev => ({
-      ...prev,
-      ...validSuggestions,
-      ...(inferredCategory ? { category: inferredCategory } : {}),
-      ...(subcategory ? { sku: '' } : {}),
-      ...(materialSuggestion ? { care_instructions: deriveCareInstructions(materialSuggestion) } : {}),
-    } as FormState));
+    const sizeSystemSuggestion = typeof suggestions.size_system === 'string' ? suggestions.size_system : undefined;
+    const originalSizeSuggestion = typeof suggestions.original_size === 'string' ? suggestions.original_size : undefined;
+    setForm(prev => {
+      const nextSizeSystem = sizeSystemSuggestion ?? prev.size_system;
+      const nextOriginalSize = originalSizeSuggestion ?? prev.original_size;
+      const derived = deriveDeSize(nextSizeSystem, nextOriginalSize, prev.gender, subcategory || prev.subcategory);
+      return {
+        ...prev,
+        ...validSuggestions,
+        ...(inferredCategory ? { category: inferredCategory } : {}),
+        ...(subcategory ? { sku: '' } : {}),
+        ...(materialSuggestion ? { care_instructions: deriveCareInstructions(materialSuggestion) } : {}),
+        ...(derived ? { de_size: derived } : {}),
+      } as FormState;
+    });
     if (subcategory) {
       try {
         const sku = await requestSku(subcategory);
@@ -319,6 +301,7 @@ export default function ArticleCaptureForm() {
       const payload = {
         ...form,
         purchase_price: form.purchase_price ? Number(form.purchase_price) : null,
+        original_retail_value: form.original_retail_value ? Number(form.original_retail_value) : null,
         sale_price: form.sale_price ? Number(form.sale_price) : null,
       };
       const productResponse = await fetch('/api/products', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
@@ -327,13 +310,22 @@ export default function ArticleCaptureForm() {
       setProgress(25);
 
       for (let index = 0; index < photos.length; index += 1) {
-        await uploadPhotoDirect(photos[index].file, product.id, index);
-        setProgress(25 + Math.round(((index + 1) / Math.max(1, photos.length)) * 75));
+        await uploadProductPhoto(photos[index].file, product.id, index);
+        setProgress(25 + Math.round(((index + 1) / Math.max(1, photos.length)) * 70));
+      }
+      if (referencePhotoFile) {
+        const referenceUrl = await uploadReferencePhoto(referencePhotoFile, product.id);
+        await fetch(`/api/products/${product.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reference_photo_url: referenceUrl }),
+        });
       }
       setMessage(`Artikel ${product.sku} wurde erfolgreich als ${product.status} gespeichert.`);
       setForm({ ...initialState, sku: '' });
       photos.forEach(p => URL.revokeObjectURL(p.preview));
       setPhotos([]);
+      pickReferencePhoto(null);
       setProgress(100);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Speichern fehlgeschlagen.');
@@ -363,6 +355,14 @@ export default function ArticleCaptureForm() {
     </section>
 
     <section className="capture-card">
+      <div className="capture-heading"><div><span className="step-badge">↺</span><h2>Referenzfoto (Lieferant, optional)</h2></div></div>
+      <p className="field-help">Katalog-/Lieferantenfoto (z. B. von Remix) — dauerhafte Fotokartei zum Vergleich. Wird NIE von der KI analysiert und zählt nicht als Artikelfoto.</p>
+      {referencePhotoPreview
+        ? <div className="photo-grid"><article className="photo-preview"><img src={referencePhotoPreview} alt="Referenzfoto" /><div><button type="button" className="remove" onClick={()=>pickReferencePhoto(null)}>Entfernen</button></div></article></div>
+        : <label className="upload-zone" tabIndex={0} onPaste={handleReferencePhotoPaste}><UploadIcon /><span>Referenzfoto auswählen — oder hier klicken und Bild einfügen (Strg+V)</span><input type="file" accept="image/*" onChange={e => { pickReferencePhoto(e.target.files?.[0] || null); e.currentTarget.value=''; }} /></label>}
+    </section>
+
+    <section className="capture-card">
       <div className="capture-heading"><div><span className="step-badge">2</span><h2>Artikel-DNA</h2></div><button type="button" className="ai-analysis-button" onClick={analyzeAllPhotos} disabled={analyzing || !photos.length || Boolean(aiBudget?.blocked)}>{analyzing ? 'KI analysiert …' : aiBudget?.blocked ? 'KI-Budget erreicht' : '✦ Alle Fotos analysieren'}</button></div>
       {aiBudget && <div className={`ai-budget-card${aiBudget.warning ? ' warning' : ''}${aiBudget.blocked ? ' blocked' : ''}`}>
         <div><strong>KI-Budget im laufenden Monat</strong><span>{aiBudget.spentEur.toFixed(3)} € von {aiBudget.budgetEur.toFixed(2)} € · noch {aiBudget.remainingEur.toFixed(2)} €</span></div>
@@ -385,11 +385,12 @@ export default function ArticleCaptureForm() {
         <label>Status<select value={form.status} onChange={e=>update('status',e.target.value)}><option>Entwurf</option><option>Aktiv</option><option>Reserviert</option><option>Verkauft</option></select></label>
         <label>Marke / Designer<input list="designer-suggestions" value={form.brand} onChange={e=>update('brand',e.target.value)} /><datalist id="designer-suggestions">{designerSuggestions.map(name=><option key={name} value={name}/>)}</datalist></label>
         <label>Kategorie<select value={form.category} onChange={e=>setForm(prev=>({...prev,category:e.target.value,subcategory:''}))}><option value="">Bitte wählen</option>{Object.keys(categories).map(category=><option key={category}>{category}</option>)}</select></label>
-        <label>Unterkategorie *<select value={form.subcategory} onChange={async e=>{const value=e.target.value; setForm(prev=>({...prev,subcategory:value,sku:''})); if(value){try{const sku=await requestSku(value); setForm(prev=>prev.subcategory===value?{...prev,sku}:prev);}catch(error){setMessage(error instanceof Error?error.message:'SKU konnte nicht erzeugt werden.')}}}} disabled={!form.category} required><option value="">{form.category ? 'Bitte wählen' : 'Zuerst Kategorie wählen'}</option>{form.category && categories[form.category as CategoryName]?.map(item=><option key={item}>{item}</option>)}</select></label>
-        <label>Saison<select value={form.season} onChange={e=>update('season',e.target.value)}><option>Ganzjährig</option><option>Frühling</option><option>Sommer</option><option>Herbst</option><option>Winter</option></select></label>
-        <label>Originalgröße<input value={form.original_size} onChange={e=>update('original_size',e.target.value)} /></label>
-        <label>Größensystem<select value={form.size_system} onChange={e=>update('size_system',e.target.value)}><option>DE</option><option>FR</option><option>IT</option><option>UK</option><option>US</option><option>One Size</option></select></label>
-        <label>DE-Vergleichsgröße<input value={form.de_size} onChange={e=>update('de_size',e.target.value)} /></label>
+        <label>Unterkategorie *<select value={form.subcategory} onChange={async e=>{const value=e.target.value; setForm(prev=>{const derived=deriveDeSize(prev.size_system,prev.original_size,prev.gender,value); return {...prev,subcategory:value,sku:'',...(derived?{de_size:derived}:{})}}); if(value){try{const sku=await requestSku(value); setForm(prev=>prev.subcategory===value?{...prev,sku}:prev);}catch(error){setMessage(error instanceof Error?error.message:'SKU konnte nicht erzeugt werden.')}}}} disabled={!form.category} required><option value="">{form.category ? 'Bitte wählen' : 'Zuerst Kategorie wählen'}</option>{form.category && categories[form.category as CategoryName]?.map(item=><option key={item}>{item}</option>)}</select></label>
+        <label>Saison<select value={form.season} onChange={e=>update('season',e.target.value)}><option>Ganzjährig</option><option>Frühling</option><option>Sommer</option><option>Herbst</option><option>Winter</option><option>Frühling-Sommer</option><option>Frühling-Herbst</option><option>Herbst-Winter</option></select></label>
+        <label>Geschlecht<select value={form.gender} onChange={e=>updateSize({gender:e.target.value,subcategory:form.subcategory})}><option>Damen</option><option>Herren</option></select></label>
+        <label>Originalgröße<input value={form.original_size} onChange={e=>updateSize({original_size:e.target.value,subcategory:form.subcategory})} /></label>
+        <label>Größensystem<select value={form.size_system} onChange={e=>updateSize({size_system:e.target.value,subcategory:form.subcategory})}><option>DE</option><option>FR</option><option>IT</option><option>UK</option><option>US</option><option>One Size</option></select></label>
+        <label>DE-Vergleichsgröße<input value={form.de_size} onChange={e=>update('de_size',e.target.value)} /><small>Bei FR (Damen) und bei IT/UK/US-Zahlengrößen automatisch berechnet, sonst manuell eintragen.</small></label>
         <label>Internationale Größe<input value={form.international_size} onChange={e=>update('international_size',e.target.value)} placeholder="XS / S / M / L" /></label>
         <label>Hauptfarbe<select value={form.color} onChange={e=>update('color',e.target.value)}><option value="">Bitte wählen</option>{colorCatalog.map(c=><option key={c}>{c}</option>)}</select></label>
         <label>Nebenfarbe<select value={form.secondary_color} onChange={e=>update('secondary_color',e.target.value)}><option value="">Keine</option>{colorCatalog.map(c=><option key={c}>{c}</option>)}</select></label>
@@ -425,7 +426,10 @@ export default function ArticleCaptureForm() {
           </div>
           {form.occasions.length > 0 && <div className="selected-occasions">Ausgewählt: {form.occasions.join(' · ')}</div>}
         </fieldset>
-        <label>Einkaufspreis (€)<input type="number" min="0" step="0.01" value={form.purchase_price} onChange={e=>update('purchase_price',e.target.value)} /></label>
+        <label>Einkaufspreis (€)<input type="number" min="0" step="0.01" value={form.purchase_price} onChange={e=>update('purchase_price',e.target.value)} /><small>Was MON CHIC PARIS für dieses Vintage-Stück bezahlt hat.</small></label>
+        <label>Ehemaliger Wert (€)<input type="number" min="0" step="0.01" value={form.original_retail_value} onChange={e=>update('original_retail_value',e.target.value)} /><small>Preis beim ursprünglichen Neukauf (z. B. Hersteller-Neupreis) — als Orientierung für den Verkaufspreis, nicht der heutige Einkaufspreis.</small></label>
+        <label>Referenznummer (intern)<input value={form.supplier_reference} onChange={e=>update('supplier_reference',e.target.value)} placeholder="z. B. 8912368-1" /></label>
+        <label>Artikel-Nr. / Bestellung<input value={form.supplier_order_number} onChange={e=>update('supplier_order_number',e.target.value)} placeholder="z. B. 133357183" /></label>
         <label>Verkaufspreis (€)<input type="number" min="0" step="0.01" value={form.sale_price} onChange={e=>update('sale_price',e.target.value)} /></label>
         <label>Lagerort<select value={form.warehouse_location} onChange={e=>update('warehouse_location',e.target.value)}><option value="">Bitte wählen</option><option>Boutique</option><option>Lager A</option><option>Lager B</option><option>Schaufenster</option><option>Fotoshooting</option><option>Versand</option><option>Qualitätsprüfung</option><option>Reinigung</option><option>Retouren</option><option>Extern</option><option>Sonstiges</option></select></label>
         <label>Regal<input value={form.warehouse_rack} onChange={e=>update('warehouse_rack',e.target.value)} placeholder="z. B. B" /></label>

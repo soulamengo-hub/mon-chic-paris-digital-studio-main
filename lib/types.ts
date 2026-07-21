@@ -5,6 +5,26 @@ export type ProductInput = {
   era?: string; style_key?: string; authenticity_status?: string; purchase_price?: number | null;
   sale_price?: number | null; occasions?: string[]; measurements?: string; flaws?: string; notes?: string;
   internal_notes?: string; public_title?: string; public_description?: string; warehouse_location?: string; warehouse_rack?: string; warehouse_shelf?: string; last_inventory_at?: string | null; last_movement_at?: string | null; status?: string;
+  // Referenznummer aus dem Lieferanten-Import (z. B. Remix-Bestellnummer). Dient dem
+  // späteren automatischen Zuordnen von Fotos anhand des Dateinamens (siehe
+  // components/BulkPhotoMatch.tsx) — kein sichtbares Formularfeld.
+  supplier_reference?: string;
+  // Bestimmt, welche Größentabelle (Damen/Herren) für die Größenumrechnung gilt —
+  // DE 44 bedeutet bei Damen XXL, bei Herren XS.
+  gender?: 'Damen' | 'Herren';
+  // Referenzfoto des Lieferanten (z. B. Remix-Katalogfoto) — dauerhafte "Fotokartei",
+  // getrennt von den echten Artikelfotos in product_images. Wird NIE von der KI
+  // analysiert und zählt nicht zur Foto-Vollständigkeit.
+  reference_photo_url?: string;
+  // "Ehemaliger Wert": der Preis des Kleidungsstücks beim ursprünglichen Neukauf
+  // (z. B. Hersteller-RRP) — als Orientierung für den Verkaufspreis. NICHT der
+  // Preis, den MON CHIC PARIS für das Vintage-Stück bezahlt hat (das ist
+  // purchase_price/"Einkaufspreis"), und NICHT der aktuelle "Verkaufspreis".
+  original_retail_value?: number | null;
+  // Artikel-/Bestellnummer der Quelle (z. B. Remix, aber auch andere Lieferanten/
+  // Quellen) — getrennt von supplier_reference, das MON CHIC PARIS für die eigene
+  // interne Charge/Referenz nutzt.
+  supplier_order_number?: string;
 };
 export type ProductRecord = ProductInput & { id: string; created_at: string; updated_at: string; product_images?: Array<{id?:string; public_url:string; storage_path?:string; sort_order:number}> };
 

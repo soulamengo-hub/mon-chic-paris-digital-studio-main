@@ -16,3 +16,4 @@ export const BellIcon = (p: Props) => <svg {...base} {...p}><path d="M18 8a6 6 0
 export const CalendarIcon = (p: Props) => <svg {...base} {...p}><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>;
 export const CameraIcon = (p: Props) => <svg {...base} {...p}><path d="M4 7h4l2-3h4l2 3h4v13H4z"/><circle cx="12" cy="13" r="4"/></svg>;
 export const UploadIcon = (p: Props) => <svg {...base} {...p}><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 20h16"/></svg>;
+export const QrIcon = (p: Props) => <svg {...base} {...p}><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM20 14v3M14 20h3M20 20v.01"/></svg>;

@@ -23,6 +23,7 @@ type Product = {
   warehouse_rack?: string;
   warehouse_shelf?: string;
   public_title?: string;
+  reference_photo_url?: string;
   product_images?: ImageRow[];
 };
 
@@ -125,7 +126,9 @@ export default function ArticleList({ inventoryMode = false }: { inventoryMode?:
                 <div className="inventory-media">
                   {images[0]
                     ? <img src={images[0].public_url} alt={item.public_title || item.brand || 'Artikel'} />
-                    : <div className="inventory-placeholder"><span>MON CHIC</span><small>Kein Produktfoto</small></div>}
+                    : item.reference_photo_url
+                      ? <div className="inventory-reference-photo"><img src={item.reference_photo_url} alt="Referenzfoto (Lieferant)" /><span className="status-pill">Referenzfoto</span></div>
+                      : <div className="inventory-placeholder"><span>MON CHIC</span><small>Kein Produktfoto</small></div>}
                   <div className="inventory-media-badges">
                     <span>{images.length} Foto{images.length === 1 ? '' : 's'}</span>
                     <span className={score >= 80 ? 'quality-good' : 'quality-open'}>DNA {score}%</span>
