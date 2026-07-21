@@ -11,7 +11,7 @@ export type ProductInput = {
   supplier_reference?: string;
   // Bestimmt, welche Größentabelle (Damen/Herren) für die Größenumrechnung gilt —
   // DE 44 bedeutet bei Damen XXL, bei Herren XS.
-  gender?: 'Damen' | 'Herren';
+  gender?: string;
   // Referenzfoto des Lieferanten (z. B. Remix-Katalogfoto) — dauerhafte "Fotokartei",
   // getrennt von den echten Artikelfotos in product_images. Wird NIE von der KI
   // analysiert und zählt nicht zur Foto-Vollständigkeit.
