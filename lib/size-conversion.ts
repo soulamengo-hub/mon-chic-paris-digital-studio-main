@@ -60,11 +60,17 @@ function deriveFromNumericTable(sizeSystem: string, originalSize: string, gender
   const value = Number(originalSize.trim().replace(',', '.'));
   if (!Number.isFinite(value)) return undefined;
   const table = tableFor(gender);
+  // Ist die Größe bereits im deutschen System angegeben, ist keine Umrechnung
+  // nötig — die DE-Vergleichsgröße entspricht dann exakt der Originalgröße
+  // (z. B. DE 38 bleibt "38", wird NICHT in den Buchstaben "M" umgewandelt).
+  if (system === 'DE') {
+    const exists = table.some(r => r.de === value);
+    return exists ? String(value) : undefined;
+  }
   let row: SizeRow | undefined;
   if (system === 'IT') row = table.find(r => r.it === value);
   else if (system === 'UK') row = table.find(r => r.uk === value);
   else if (system === 'US') row = table.find(r => r.us === value);
-  else if (system === 'DE') row = table.find(r => r.de === value);
   return row?.label;
 }
 

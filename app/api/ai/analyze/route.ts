@@ -24,13 +24,14 @@ for (const [category, subcategories] of Object.entries(categories)) {
 }
 
 type ConfidenceMap = Partial<Record<
-  'brand' | 'category' | 'subcategory' | 'color' | 'secondary_color' | 'material' | 'pattern' |
+  'brand' | 'origin' | 'category' | 'subcategory' | 'color' | 'secondary_color' | 'material' | 'pattern' |
   'condition' | 'season' | 'original_size' | 'size_system' | 'de_size' | 'international_size' |
-  'era' | 'style_key' | 'occasions' | 'measurements' | 'flaws' | 'notes', number
+  'era' | 'style_key' | 'occasions' | 'measurements' | 'flaws' | 'notes' | 'public_description', number
 >>;
 
 type AnalysisResult = {
   brand?: string;
+  origin?: string;
   category?: string;
   subcategory?: string;
   color?: string;
@@ -50,6 +51,7 @@ type AnalysisResult = {
   measurements?: string;
   flaws?: string;
   notes?: string;
+  public_description?: string;
   confidence?: ConfidenceMap;
 };
 
@@ -99,6 +101,9 @@ function parseJson(text: string): AnalysisResult {
     result.brand = knownBrand || brand;
   }
 
+  const origin = cleanString(raw.origin);
+  if (origin && confidenceFor(raw, 'origin') >= 0.6) result.origin = origin;
+
   const subcategory = cleanString(raw.subcategory);
   const inferredCategory = subcategory ? subcategoryToCategory.get(subcategory) : undefined;
   const category = cleanString(raw.category);
@@ -116,8 +121,11 @@ function parseJson(text: string): AnalysisResult {
     if (value && confidenceFor(raw, field) >= 0.55) result[field] = value;
   }
 
-  // Stilrichtung: nur Werte aus dem MON-CHIC-Stilkatalog (MC-04-04) übernehmen.
-  // Die KI darf sowohl den internen Schlüssel als auch den Anzeigenamen liefern.
+  const publicDescription = cleanString(raw.public_description);
+  if (publicDescription && confidenceFor(raw, 'public_description') >= 0.55) {
+    result.public_description = publicDescription;
+  }
+
   const rawStyle = cleanString(raw.style_key);
   if (rawStyle) {
     const match = styleCatalog.find(
@@ -126,9 +134,6 @@ function parseJson(text: string): AnalysisResult {
     if (match && confidenceFor(raw, 'style_key') >= 0.55) result.style_key = match.key;
   }
 
-  // Farbe: nur Werte aus dem kontrollierten Katalog übernehmen (nicht frei erfinden).
-  // Ein zusätzlicher Freitext-Hinweis (color_note) darf präziser sein, ersetzt aber
-  // nie den kontrollierten Wert.
   function matchColor(value: unknown): string | undefined {
     const cleaned = cleanString(value);
     if (!cleaned) return undefined;
@@ -150,24 +155,19 @@ function parseJson(text: string): AnalysisResult {
   if (sizeSystem && allowedSizeSystems.includes(sizeSystem) && confidenceFor(raw, 'size_system') >= 0.65) result.size_system = sizeSystem;
   const deSize = cleanString(raw.de_size);
   if (deSize && confidenceFor(raw, 'de_size') >= 0.65) result.de_size = deSize;
-  // Regelbasierte Umrechnung hat Vorrang vor der KI-Schätzung: Ist das
-  // Größensystem bekannt (z. B. FR), wird die tatsächliche DE-Größe fest berechnet
-  // statt von der KI geschätzt — das Originalformat (original_size) bleibt unverändert.
   const derivedDeSize = deriveDeSizeGenderNeutral(result.size_system, result.original_size);
   if (derivedDeSize) result.de_size = derivedDeSize;
   const internationalSize = cleanString(raw.international_size);
   if (internationalSize && confidenceFor(raw, 'international_size') >= 0.65) result.international_size = internationalSize;
 
   const condition = cleanString(raw.condition);
-  // Zustand wird nur übernommen, wenn die KI eine Abweichung vom Standard
-  // "Sehr gut" erkennt. Ist alles unauffällig, bleibt das Formularfeld unangetastet.
   if (condition && condition !== 'Sehr gut' && allowedConditions.includes(condition) && confidenceFor(raw, 'condition') >= 0.65) {
     result.condition = condition;
   }
   const season = cleanString(raw.season);
   if (season && allowedSeasons.includes(season) && confidenceFor(raw, 'season') >= 0.65) result.season = season;
 
-  if (Array.isArray(raw.occasions) && confidenceFor(raw, 'occasions') >= 0.82) {
+  if (Array.isArray(raw.occasions) && confidenceFor(raw, 'occasions') >= 0.68) {
     result.occasions = raw.occasions.filter(value => typeof value === 'string' && allowedOccasions.includes(value));
   }
 
@@ -192,8 +192,6 @@ async function getCurrentBudget() {
     const spentEur = rows.reduce((sum, row) => sum + Number(row.estimated_cost_eur || 0), 0);
     return summarizeBudget(spentEur);
   } catch {
-    // Wenn die Migration/Tabelle noch nicht existiert, blockieren wir nicht,
-    // sondern melden ein leeres Budget – die Analyse bleibt weiter nutzbar.
     return summarizeBudget(0);
   }
 }
@@ -207,8 +205,7 @@ async function logAiUsage(model: string, inputTokens: number, outputTokens: numb
       body: JSON.stringify({ model, input_tokens: inputTokens, output_tokens: outputTokens, estimated_cost_eur: estimatedCostEur }),
     });
   } catch {
-    // Protokollierung ist "best effort": ein Fehler hier darf die eigentliche
-    // Analyseantwort an den Nutzer nicht verhindern.
+    // Protokollierung ist "best effort".
   }
 }
 
@@ -235,8 +232,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Mindestens ein Analysebild ist zu groß.' }, { status: 413 });
     }
 
-    // Budget VOR dem eigentlichen (kostenpflichtigen) KI-Aufruf prüfen. Ist das
-    // Monatsbudget erreicht, wird OpenAI gar nicht erst kontaktiert.
     const budgetBefore = await getCurrentBudget();
     if (budgetBefore.blocked) {
       return NextResponse.json({ error: 'Das monatliche KI-Budget ist erreicht. Weitere Analysen bitte im nächsten Monat oder nach manueller Freigabe.', budget: budgetBefore }, { status: 402 });
@@ -250,6 +245,29 @@ PRIORITÄT:
 2. Lies Größenetiketten.
 3. Lies Material- und Pflegeetiketten vollständig.
 4. Bestimme erst danach Kategorie, Unterkategorie, Farbe, Muster, Zustand, Saison, Stil, Anlässe, Maße und sichtbare Mängel.
+5. Schreibe zum Schluss eine flüssige Artikelbeschreibung (siehe unten).
+
+MASSE VS. NOTIZEN — WICHTIGE TRENNUNG:
+- Alle gemessenen Zahlenwerte (Brust, Taille, Länge, Ärmel, Schulter, Bundweite usw.) gehören AUSSCHLIESSLICH in das Feld "measurements", z. B. "Brust 48 cm, Taille 39 cm, Länge 94 cm".
+- Das Feld "notes" ("Weitere Eigenschaften") ist NUR für besondere, verkaufsfördernde Auffälligkeiten ohne Zahlen gedacht (z. B. "Applikation am Kragen", "Innenfutter aus Seide", "Vintage-Knöpfe"). Zahlen/Maße dürfen NICHT in "notes" erscheinen.
+
+ARTIKELBESCHREIBUNG (public_description) — NEU:
+- Schreibe zusätzlich eine kurze, ansprechende Fließtext-Beschreibung (2-4 Sätze) für die Website/das Schaufenster, im Stil eines hochwertigen Vintage-Boutique-Textes.
+- Beschreibe Look, Material, Passform und Besonderheiten in gut lesbarer, verkaufsfördernder Sprache.
+- KEINE Zahlen/Maße, KEINE Preise, KEINE Echtheitsaussagen darin.
+- Dieser Text landet direkt im öffentlichen Shop, also positiv und einladend formulieren, aber keine Fakten erfinden, die nicht aus den Fotos ersichtlich sind.
+
+HERKUNFT DER MARKE (origin) — WICHTIG:
+- Ermittle das Herkunftsland der Marke anhand des offiziell registrierten Unternehmenssitzes oder der eingetragenen Markeninhaberin.
+- Verwende bevorzugt offizielle Handelsregister, Markenregister oder die offiziellen rechtlichen Unternehmensangaben der Marke.
+- Das Herstellungsland des konkreten Artikels ("Made in ...") darf NICHT als Herkunft der Marke eingetragen werden.
+- Rechtsform, Umsatzsteuer-ID und Domain dürfen nur als unterstützende Hinweise verwendet werden.
+- Bei nicht eindeutiger Zuordnung das Feld origin leer lassen.
+
+INTERNATIONALE GRÖSSE (international_size):
+- Leite die internationale Größe (z. B. gängige internationale Konfektionsgröße wie XS/S/M/L/XL oder die passende US/UK-Zahlengröße) aus der Vintage-Größenangabe (original_size), dem Größensystem (size_system) und der ermittelten Herkunft der Marke (origin) ab, sofern dies eindeutig möglich ist.
+- Nutze dabei bekannte, marktübliche Größentabellen für das jeweilige Herkunftsland.
+- Bei Unsicherheit über die korrekte Umrechnung das Feld international_size leer lassen, statt zu raten.
 
 HARTE REGELN:
 - "MON CHIC" und "MON CHIC PARIS" sind der Händler und dürfen niemals als Produktmarke ausgegeben werden.
@@ -272,7 +290,7 @@ Erlaubter Farbkatalog: ${colorCatalog.join(', ')}.
 Erlaubte MON-CHIC-Stilrichtungen (style_key MUSS exakt einer dieser internen Schlüssel sein, keine eigenen erfinden): ${styleCatalog.map(style => `${style.key} = ${style.label}`).join('; ')}.
 
 Antworte ausschließlich als JSON-Objekt. Zulässige Felder:
-brand, category, subcategory, color, secondary_color, color_note, material, pattern, condition, season, original_size, size_system, de_size, international_size, era, style_key, occasions, measurements, flaws, notes, confidence.
+brand, origin, category, subcategory, color, secondary_color, color_note, material, pattern, condition, season, original_size, size_system, de_size, international_size, era, style_key, occasions, measurements, flaws, notes, public_description, confidence.
 confidence ist ein Objekt mit denselben Feldnamen und Werten von 0 bis 1. Die Konfidenz muss die tatsächliche Sicherheit widerspiegeln.`;
 
     const response = await fetch('https://api.openai.com/v1/responses', {

@@ -1,5 +1,5 @@
 export type ProductInput = {
-  sku: string; brand?: string; category?: string; subcategory?: string; season?: string; size?: string;
+  sku: string; brand?: string; origin?: string; fit?: string; category?: string; subcategory?: string; season?: string; size?: string;
   original_size?: string; size_system?: string; de_size?: string; international_size?: string;
   color?: string; secondary_color?: string; color_note?: string; material?: string; care_instructions?: string; pattern?: string; condition?: string;
   era?: string; style_key?: string; authenticity_status?: string; purchase_price?: number | null;
@@ -27,7 +27,6 @@ export type ProductInput = {
   supplier_order_number?: string;
 };
 export type ProductRecord = ProductInput & { id: string; created_at: string; updated_at: string; product_images?: Array<{id?:string; public_url:string; storage_path?:string; sort_order:number}> };
-
 // Legacy modules still use these broader records. Keep them compatible while the
 // application is consolidated around ProductInput/ProductRecord.
 export type Product = ProductRecord & {
@@ -42,7 +41,6 @@ export type Product = ProductRecord & {
   purchase_source?: string;
   sold_at?: string | null;
 };
-
 export type Expense = {
   id?: string;
   category?: string;

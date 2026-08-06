@@ -1,7 +1,7 @@
 import type { ProductInput } from './types';
 
 const allowedFields: Array<keyof ProductInput> = [
-  'sku','brand','category','subcategory','season','size','original_size','size_system','de_size','international_size',
+  'sku','brand','origin','category','subcategory','season','size','original_size','size_system','de_size','international_size',
   'color','secondary_color','color_note','material','care_instructions','pattern','condition','era','style_key','authenticity_status','purchase_price',
   'sale_price','occasions','measurements','flaws','notes','internal_notes','public_title','public_description',
   'warehouse_location','warehouse_rack','warehouse_shelf','last_inventory_at','last_movement_at','status','supplier_reference','gender','reference_photo_url','original_retail_value','supplier_order_number',
