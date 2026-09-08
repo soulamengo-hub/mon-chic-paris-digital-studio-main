@@ -11,6 +11,7 @@ import {
 const items = [
   { href: '/', label: 'Dashboard', icon: HomeIcon },
   { href: '/articles', label: 'Artikel', icon: ArticleIcon },
+  { href: '/articles/labels', label: 'Etiketten', icon: QrIcon },
   { href: '/showcase', label: 'Schaufenster', icon: SparkIcon },
   { href: '/inventory', label: 'Lager', icon: BoxIcon },
   { href: '/sales', label: 'Verkäufe', icon: CartIcon },
@@ -22,26 +23,67 @@ const items = [
   { href: '/settings', label: 'Einstellungen', icon: GearIcon },
 ];
 
+const mobileItems = [
+  { href: '/', label: 'Dashboard', icon: HomeIcon },
+  { href: '/articles', label: 'Artikel', icon: ArticleIcon },
+  { href: '/articles/labels', label: 'Etiketten', icon: QrIcon },
+  { href: '/inventory', label: 'Lager', icon: BoxIcon },
+  { href: '/sales', label: 'Verkäufe', icon: CartIcon },
+];
+
+function isActive(pathname: string, href: string) {
+  if (href === '/') return pathname === '/';
+  if (href === '/articles') {
+    return pathname.startsWith('/articles') && !pathname.startsWith('/articles/labels');
+  }
+  return pathname.startsWith(href);
+}
+
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+
   return (
     <div className="app-shell">
       <header className="app-header">
         <div className="brand-block">
-          <Image src="/mon-chic-logo.png" alt="MON CHIC PARIS Logo" width={150} height={130} priority className="brand-logo" />
+          <Image
+            src="/mon-chic-logo.png"
+            alt="MON CHIC PARIS Logo"
+            width={150}
+            height={130}
+            priority
+            className="brand-logo"
+          />
           <div>
             <div className="brand-title">MON CHIC PARIS</div>
             <div className="brand-subtitle">DIGITAL STUDIO</div>
             <div className="brand-tagline">Fashion · Creativity · Innovation</div>
           </div>
         </div>
+
         <div className="header-actions">
-          <Link href="/articles/scan" className="icon-button" aria-label="Artikel per QR-Code öffnen"><QrIcon /></Link>
-          <button className="icon-button" aria-label="Benachrichtigungen"><BellIcon /></button>
-          <Link href="/ai-studio" className="ai-pill"><SparkIcon /> AI Studio</Link>
+          <Link
+            href="/articles/scan"
+            className="icon-button"
+            aria-label="Artikel per QR-Code öffnen"
+          >
+            <QrIcon />
+          </Link>
+
+          <button className="icon-button" aria-label="Benachrichtigungen">
+            <BellIcon />
+          </button>
+
+          <Link href="/ai-studio" className="ai-pill">
+            <SparkIcon /> AI Studio
+          </Link>
+
           <div className="profile">
             <div className="avatar">MC</div>
-            <div><strong>Mon Chic</strong><span>Administrator</span></div>
+            <div>
+              <strong>Mon Chic</strong>
+              <span>Administrator</span>
+            </div>
           </div>
         </div>
       </header>
@@ -49,18 +91,47 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <aside className="sidebar">
         <nav>
           {items.map(({ href, label, icon: Icon }) => {
-            const active = href === '/' ? pathname === '/' : pathname.startsWith(href);
-            return <Link key={href} href={href} className={`nav-item${active ? ' active' : ''}`}><Icon /><span>{label}</span></Link>;
+            const active = isActive(pathname, href);
+
+            return (
+              <Link
+                key={href}
+                href={href}
+                className={`nav-item${active ? ' active' : ''}`}
+              >
+                <Icon />
+                <span>{label}</span>
+              </Link>
+            );
           })}
         </nav>
-        <div className="premium-card"><ArticleIcon /><div><strong>Premium Plan</strong><span>Alle Funktionen aktiv</span></div><b>›</b></div>
+
+        <div className="premium-card">
+          <ArticleIcon />
+          <div>
+            <strong>Premium Plan</strong>
+            <span>Alle Funktionen aktiv</span>
+          </div>
+          <b>›</b>
+        </div>
       </aside>
 
       <main className="main-content">{children}</main>
+
       <div className="mobile-nav">
-        {items.slice(0,5).map(({ href, label, icon: Icon }) => {
-          const active = href === '/' ? pathname === '/' : pathname.startsWith(href);
-          return <Link key={href} href={href} className={active ? 'active' : ''}><Icon /><span>{label}</span></Link>;
+        {mobileItems.map(({ href, label, icon: Icon }) => {
+          const active = isActive(pathname, href);
+
+          return (
+            <Link
+              key={href}
+              href={href}
+              className={active ? 'active' : ''}
+            >
+              <Icon />
+              <span>{label}</span>
+            </Link>
+          );
         })}
       </div>
     </div>

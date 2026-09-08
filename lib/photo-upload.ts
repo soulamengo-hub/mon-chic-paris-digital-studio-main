@@ -16,8 +16,12 @@ export function inferMimeType(file: File) {
   if (file.type) return file.type;
   const extension = file.name.split('.').pop()?.toLowerCase();
   const mimeByExtension: Record<string, string> = {
-    jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp',
-    heic: 'image/heic', heif: 'image/heif',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    png: 'image/png',
+    webp: 'image/webp',
+    heic: 'image/heic',
+    heif: 'image/heif',
   };
   return extension ? mimeByExtension[extension] || 'application/octet-stream' : 'application/octet-stream';
 }
@@ -30,6 +34,7 @@ async function uploadRawFile(file: File, storagePath: string): Promise<string> {
   if (file.size > MAX_PHOTO_BYTES) {
     throw new Error(`Foto „${file.name}“ ist größer als 8 MB. Bitte auf dem iPhone als kleinere Datei exportieren.`);
   }
+
   const { url, key } = getPublicSupabaseConfig();
   const mimeType = inferMimeType(file);
   const encodedPath = storagePath.split('/').map(encodeURIComponent).join('/');
@@ -40,8 +45,25 @@ async function uploadRawFile(file: File, storagePath: string): Promise<string> {
     headers: { ...authHeaders, 'Content-Type': mimeType, 'x-upsert': 'true' },
     body: file,
   });
-  if (!uploadResponse.ok) throw new Error(`Foto-Upload fehlgeschlagen: ${await uploadResponse.text()}`);
+
+  if (!uploadResponse.ok) {
+    throw new Error(`Foto-Upload fehlgeschlagen: ${await uploadResponse.text()}`);
+  }
+
   return `${url}/storage/v1/object/public/product-images/${encodedPath}`;
+}
+
+export async function deleteUploadedObject(storagePath: string) {
+  const { url, key } = getPublicSupabaseConfig();
+  const encodedPath = storagePath.split('/').map(encodeURIComponent).join('/');
+  const response = await fetch(`${url}/storage/v1/object/product-images/${encodedPath}`, {
+    method: 'DELETE',
+    headers: { apikey: key, Authorization: `Bearer ${key}` },
+  });
+
+  if (!response.ok && response.status !== 404) {
+    throw new Error(`Foto konnte nicht aus dem Storage entfernt werden: ${await response.text()}`);
+  }
 }
 
 /** Lädt ein echtes Artikelfoto hoch und trägt es in product_images ein (wird von der KI analysiert). */
@@ -51,6 +73,7 @@ export async function uploadProductPhoto(file: File, productId: string, sortOrde
   const publicUrl = await uploadRawFile(file, storagePath);
   const { url, key } = getPublicSupabaseConfig();
   const authHeaders = { apikey: key, Authorization: `Bearer ${key}` };
+
   const metadataResponse = await fetch(`${url}/rest/v1/product_images`, {
     method: 'POST',
     headers: { ...authHeaders, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
@@ -64,14 +87,41 @@ export async function uploadProductPhoto(file: File, productId: string, sortOrde
       sort_order: sortOrder,
     }),
   });
-  if (!metadataResponse.ok) throw new Error(`Bild-Metadaten konnten nicht gespeichert werden: ${await metadataResponse.text()}`);
+
+  if (!metadataResponse.ok) {
+    await deleteUploadedObject(storagePath).catch(() => {});
+    throw new Error(`Bild-Metadaten konnten nicht gespeichert werden: ${await metadataResponse.text()}`);
+  }
 }
 
 /**
- * Lädt das Referenzfoto des Lieferanten hoch (z. B. Remix-Katalogfoto). Landet
- * NICHT in product_images — wird also nie von der KI analysiert und zählt nicht
- * zur "hat Fotos"-Vollständigkeit. Gibt die öffentliche URL zurück; der Aufrufer
- * speichert sie selbst im Feld reference_photo_url des Artikels (per PATCH).
+ * Lädt die Ersatzdatei zunächst nur in den Storage.
+ * Die bestehende product_images-Zeile wird anschließend serverseitig aktualisiert,
+ * damit ID und sort_order des Bildes erhalten bleiben.
+ */
+export async function uploadProductPhotoReplacement(
+  file: File,
+  productId: string,
+  imageId: string,
+  sortOrder: number,
+) {
+  const fileName = sanitizeFileName(file.name || `ersatz-${sortOrder + 1}.jpg`);
+  const safeImageId = sanitizeFileName(imageId);
+  const storagePath = `${productId}/replacements/${Date.now()}-${safeImageId}-${fileName}`;
+  const publicUrl = await uploadRawFile(file, storagePath);
+
+  return {
+    storage_path: storagePath,
+    public_url: publicUrl,
+    file_name: file.name,
+    mime_type: inferMimeType(file),
+    size_bytes: file.size,
+  };
+}
+
+/**
+ * Lädt das Referenzfoto des Lieferanten hoch (z. B. Remix-Katalogfoto).
+ * Landet NICHT in product_images — wird also nie von der KI analysiert.
  */
 export async function uploadReferencePhoto(file: File, productId: string): Promise<string> {
   const fileName = sanitizeFileName(file.name || 'referenz.jpg');

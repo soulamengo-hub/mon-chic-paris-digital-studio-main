@@ -1,6 +1,7 @@
 import AppShell from '@/components/AppShell';
 import ArticleList from '@/components/ArticleList';
 import Link from 'next/link';
+import { Suspense } from 'react';
 
 export default function ArticlesPage() {
   return (
@@ -11,9 +12,15 @@ export default function ArticlesPage() {
           <h1>Artikel</h1>
           <p>Produkte pflegen, KI-Vorschläge prüfen und Bestand sicher verwalten.</p>
         </div>
-        <Link href="/articles/new" className="primary-button">+ Neuen Artikel anlegen</Link>
+
+        <Link href="/articles/new" className="primary-button">
+          + Neuen Artikel anlegen
+        </Link>
       </div>
-      <ArticleList />
+
+      <Suspense fallback={<div className="empty-state">Artikel werden geladen …</div>}>
+        <ArticleList />
+      </Suspense>
     </AppShell>
   );
 }
