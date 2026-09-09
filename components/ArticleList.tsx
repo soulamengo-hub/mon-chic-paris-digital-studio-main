@@ -377,7 +377,7 @@ export default function ArticleList({ inventoryMode = false }: { inventoryMode?:
                     {[item.color, item.secondary_color, item.material]
                       .filter(Boolean)
                       .slice(0, 3)
-                      .map((value) => <span key={value}>{value}</span>)}
+                      .map((value, index) => <span key={`${value}-${index}`}>{value}</span>)}
                   </div>
 
                   <div className="inventory-card-facts-v2">
