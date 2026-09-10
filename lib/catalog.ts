@@ -22,7 +22,7 @@ export type CategoryName = keyof typeof categories;
 // Kontrollierter Farbkatalog (6.5.7): Die KI darf nur diese Werte für Haupt-/Nebenfarbe
 // vorschlagen. Ein zusätzlicher Freitext-Hinweis (z. B. "Dunkelblau mit roten Streifen")
 // wird separat in color_note gespeichert, ohne den kontrollierten Wert zu ersetzen.
-export const colorCatalog = ['Schwarz','Weiß','Beige','Braun','Blau','Rot','Grün','Grau','Rosa','Violett','Gold','Silber','Mehrfarbig'] as const;
+export const colorCatalog = ['Schwarz','Weiß','Beige','Braun','Blau','Rot','Orange','Grün','Grau','Rosa','Violett','Gold','Silber','Mehrfarbig'] as const;
 export type ColorName = typeof colorCatalog[number];
 
 // MON-CHIC-Stilrichtungen laut MC-04-04. Anzeige im Dropdown ohne Buchstaben-Code;
