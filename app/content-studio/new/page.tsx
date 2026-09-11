@@ -24,6 +24,7 @@ type ProductImage = {
   public_url?: string;
   url?: string;
   sort_order?: number;
+  content_suitable?: boolean;
 };
 
 type Product = {
@@ -269,7 +270,11 @@ export default function Page() {
       return response.json();
     })
     .then(data => {
-      setProducts(Array.isArray(data) ? data : []);
+      const productList = Array.isArray(data) ? data : [];
+      setProducts(productList);
+      setSelectedProducts(productList.filter((product: Product) =>
+        (product.product_images || []).some(image => Boolean(image.content_suitable))
+      ));
     })
     .catch(error => {
       console.error('Produkte konnten nicht geladen werden:', error);
@@ -588,7 +593,7 @@ export default function Page() {
     ].some(value => value.trim())
   );
 
-  const demoMode = selectedProductsCount === 0;
+  const demoMode = products.length === 0 && selectedProductsCount === 0;
 
   // Version 39: Demo mode controls only the demo product photos.
   // The preview text must always reflect the currently edited content.
@@ -617,9 +622,8 @@ export default function Page() {
   })();
 
   function getPrimaryImageUrl(product: Product) {
-    return [...(product.product_images || [])]
-      .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))[0]
-      ?.public_url || '';
+    const images = [...(product.product_images || [])].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+    return images.find(image => image.content_suitable)?.public_url || images[0]?.public_url || '';
   }
 
   const selectedPreviewProducts = selectedProducts
@@ -1724,6 +1728,28 @@ export default function Page() {
                           product.sku ||
                           'Ausgewählt'}
                       </small>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSelectedProducts(current =>
+                            current.filter(item => item.id !== product.id)
+                          )
+                        }
+                        style={{
+                          marginTop: '7px',
+                          width: '100%',
+                          padding: '6px 8px',
+                          borderRadius: '8px',
+                          border: '1px solid var(--gold)',
+                          background: '#fffaf2',
+                          cursor: 'pointer',
+                          fontSize: '10px',
+                          fontWeight: 600,
+                        }}
+                      >
+                        {'\u2713'} Auswahl entfernen
+                      </button>
                     </article>
                   );
                 })}

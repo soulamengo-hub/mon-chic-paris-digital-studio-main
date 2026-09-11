@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 
-type ImageRow = { public_url: string; sort_order: number };
+type ImageRow = { public_url: string; sort_order: number; content_suitable?: boolean };
 
 type Product = {
   id: string;
@@ -44,7 +44,8 @@ type SortKey =
   | 'size-asc'
   | 'sku-asc'
   | 'sku-desc'
-  | 'status-asc';
+  | 'status-asc'
+  | 'content-first';
 
 const DASHBOARD_GROUPS: Record<string, string[]> = {
   Oberteile: [
@@ -203,6 +204,11 @@ export default function ArticleList({ inventoryMode = false }: { inventoryMode?:
           return String(b.sku || '').localeCompare(String(a.sku || ''), 'de', { numeric: true });
         case 'status-asc':
           return String(a.status || '').localeCompare(String(b.status || ''), 'de');
+        case 'content-first': {
+          const aContent = (a.product_images || []).some(image => Boolean(image.content_suitable));
+          const bContent = (b.product_images || []).some(image => Boolean(image.content_suitable));
+          return Number(bContent) - Number(aContent);
+        }
         case 'oldest':
           return String(a.created_at || '').localeCompare(String(b.created_at || ''));
         case 'newest':
@@ -301,6 +307,7 @@ export default function ArticleList({ inventoryMode = false }: { inventoryMode?:
         </select>
 
         <select value={sortBy} onChange={(event) => setSortBy(event.target.value as SortKey)} aria-label="Sortieren">
+          <option value="content-first">★ Content geeignet zuerst</option>
           <option value="newest">Neueste zuerst</option>
           <option value="oldest">Älteste zuerst</option>
           <option value="brand-asc">Marke A–Z</option>
@@ -338,6 +345,7 @@ export default function ArticleList({ inventoryMode = false }: { inventoryMode?:
           {filtered.map((item) => {
             const images = [...(item.product_images || [])].sort((a, b) => a.sort_order - b.sort_order);
             const image = images[0]?.public_url;
+            const isContentSuitable = images.some(image => Boolean(image.content_suitable));
             const location = locationLabel(item);
             const busy = busyId === item.id;
 
@@ -361,6 +369,7 @@ export default function ArticleList({ inventoryMode = false }: { inventoryMode?:
 
                 <div className="inventory-card-body inventory-card-body-v2">
                   <span className="inventory-sku">{item.sku}</span>
+                  {isContentSuitable && <span className="inventory-content-suitable">★ Content geeignet</span>}
                   <h2>
                     {item.public_title ||
                       [item.brand, item.subcategory || item.category].filter(Boolean).join(' · ') ||

@@ -26,7 +26,7 @@ export async function GET() {
     if (ids.length > 0) {
       const encodedIds = ids.map(id => `"${String(id).replace(/"/g, '')}"`).join(',');
       const imagesResponse = await fetch(
-        `${url}/rest/v1/product_images?select=product_id,public_url,sort_order&product_id=in.(${encodeURIComponent(encodedIds)})&order=sort_order.asc`,
+        `${url}/rest/v1/product_images?select=product_id,public_url,sort_order,content_suitable&product_id=in.(${encodeURIComponent(encodedIds)})&order=sort_order.asc`,
         { headers, cache: 'no-store' },
       );
       if (imagesResponse.ok) images = (await imagesResponse.json()) as ImageRow[];
