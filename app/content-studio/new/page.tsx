@@ -211,6 +211,7 @@ export default function Page() {
   const [productsError, setProductsError] = useState('');
   const [showProductPicker, setShowProductPicker] = useState(false);
   const [selectedProducts, setSelectedProducts] = useState<Product[]>([]);
+  const [selectedContentImages, setSelectedContentImages] = useState<string[]>([]);
   const [editChannel, setEditChannel] = useState<Channel>('instagram');
   const [customHashtagInput, setCustomHashtagInput] = useState('');
   const [channelContent, setChannelContent] = useState<Record<Channel, ChannelContent>>({
@@ -275,6 +276,7 @@ export default function Page() {
       setSelectedProducts(productList.filter((product: Product) =>
         (product.product_images || []).some(image => Boolean(image.content_suitable))
       ));
+      setSelectedContentImages(productList.flatMap((product: Product) => (product.product_images || []).filter(image => Boolean(image.content_suitable)).map(image => image.id || image.public_url || '').filter(Boolean)));
     })
     .catch(error => {
       console.error('Produkte konnten nicht geladen werden:', error);
@@ -626,12 +628,25 @@ export default function Page() {
     return images.find(image => image.content_suitable)?.public_url || images[0]?.public_url || '';
   }
 
-  const selectedPreviewProducts = selectedProducts
-    .map(product => ({
-      product,
-      imageUrl: getPrimaryImageUrl(product),
-    }))
-    .filter(item => item.imageUrl);
+  function getContentImageKey(image: ProductImage) {
+    return image.id || image.public_url || image.url || '';
+  }
+
+  const selectedPreviewProducts = selectedProducts.flatMap(product =>
+    [...(product.product_images || [])]
+      .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+      .filter(image => {
+        const imageKey = getContentImageKey(image);
+        return Boolean(imageKey && selectedContentImages.includes(imageKey));
+      })
+      .map(image => ({
+        product,
+        image,
+        imageKey: getContentImageKey(image),
+        imageUrl: image.public_url || image.url || '',
+      }))
+      .filter(item => item.imageUrl)
+  );
 
   function createContentFromSelectedProducts() {
     if (selectedProducts.length === 0) return;
@@ -1642,7 +1657,7 @@ export default function Page() {
                 <div className="content-product-grid">
                   {demoProducts.map((product, index) => (
                     <article
-                      key={product.id}
+                      key={`${product.name}-${index}`}
                       className="content-product-card"
                       style={{
                         width: '132px',
@@ -1674,6 +1689,7 @@ export default function Page() {
               <div className="content-product-grid">
                 {selectedProducts.map(product => {
                   const imageUrl = getPrimaryImageUrl(product);
+                  const contentImages = [...(product.product_images || [])].filter(image => Boolean(image.content_suitable)).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
 
                   return (
                     <article
@@ -1729,6 +1745,20 @@ export default function Page() {
                           'Ausgewählt'}
                       </small>
 
+                      {contentImages.length > 0 && (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '5px', marginTop: '7px' }}>
+                          {contentImages.map(image => {
+                            const imageKey = getContentImageKey(image);
+                            const selected = selectedContentImages.includes(imageKey);
+                            const imageUrl = image.public_url || image.url || '';
+                            return (
+                              <button key={imageKey} type="button" onClick={() => setSelectedContentImages(current => selected ? current.filter(key => key !== imageKey) : [...current, imageKey])} aria-label={selected ? 'Content-Foto abwählen' : 'Content-Foto auswählen'} style={{ padding: 0, borderRadius: '7px', overflow: 'hidden', cursor: 'pointer', border: selected ? '2px solid var(--gold)' : '1px solid rgba(190, 154, 87, 0.25)', background: '#fff', aspectRatio: '1 / 1', opacity: selected ? 1 : 0.3 }}>
+                                <img src={imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                       <button
                         type="button"
                         onClick={() =>
@@ -1848,6 +1878,7 @@ export default function Page() {
                           item => item.id === product.id
                         );
                         const imageUrl = getPrimaryImageUrl(product);
+                  const contentImages = [...(product.product_images || [])].filter(image => Boolean(image.content_suitable)).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
 
                         return (
                           <button
@@ -2893,9 +2924,9 @@ export default function Page() {
                   overflow: 'hidden',
                 }}
               >
-                {selectedPreviewProducts.slice(0, 3).map(({ product, imageUrl }) => (
+                {selectedPreviewProducts.slice(0, 3).map(({ product, imageUrl, imageKey }) => (
                   <img
-                    key={product.id}
+                    key={imageKey}
                     src={imageUrl}
                     alt={product.brand || product.subcategory || 'Ausgewählter Artikel'}
                     style={{
