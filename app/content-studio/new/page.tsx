@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import AppShell from '@/components/AppShell';
+import { socialMediaFormatguide, defaultContentFormat, SOCIAL_MEDIA_FORMATGUIDE_REFERENCE } from '@/lib/social-media-formatguide';
 
 type Channel = 'instagram' | 'facebook' | 'pinterest';
 
@@ -212,7 +213,9 @@ export default function Page() {
   const [showProductPicker, setShowProductPicker] = useState(false);
   const [selectedProducts, setSelectedProducts] = useState<Product[]>([]);
   const [selectedContentImages, setSelectedContentImages] = useState<string[]>([]);
+  const [previewSlideIndex, setPreviewSlideIndex] = useState(0);
   const [editChannel, setEditChannel] = useState<Channel>('instagram');
+  const [contentFormatByChannel, setContentFormatByChannel] = useState<Record<Channel, string>>({ instagram: defaultContentFormat.instagram, facebook: defaultContentFormat.facebook, pinterest: defaultContentFormat.pinterest });
   const [customHashtagInput, setCustomHashtagInput] = useState('');
   const [channelContent, setChannelContent] = useState<Record<Channel, ChannelContent>>({
     instagram: {
@@ -546,6 +549,8 @@ export default function Page() {
   }).format(new Date());
 
   const currentRule = platformRules[previewChannel];
+  const currentContentFormat = socialMediaFormatguide[previewChannel].find(item => item.id === contentFormatByChannel[previewChannel]) || socialMediaFormatguide[previewChannel][0];
+  const editContentFormat = socialMediaFormatguide[editChannel].find(item => item.id === contentFormatByChannel[editChannel]) || socialMediaFormatguide[editChannel][0];
   const captionLength = effectivePreviewCaption.length;
   const captionPercent = currentRule.captionLimit
     ? Math.min(100, (captionLength / currentRule.captionLimit) * 100)
@@ -632,11 +637,23 @@ export default function Page() {
     return image.id || image.public_url || image.url || '';
   }
 
+  function moveContentImage(imageKey: string, direction: -1 | 1) {
+    setSelectedContentImages(current => {
+      const fromIndex = current.indexOf(imageKey);
+      const toIndex = fromIndex + direction;
+      if (fromIndex < 0 || toIndex < 0 || toIndex >= current.length) return current;
+      const next = [...current];
+      [next[fromIndex], next[toIndex]] = [next[toIndex], next[fromIndex]];
+      return next;
+    });
+  }
+
   const selectedPreviewProducts = selectedProducts.flatMap(product =>
     [...(product.product_images || [])]
       .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
       .filter(image => {
         const imageKey = getContentImageKey(image);
+
         return Boolean(imageKey && selectedContentImages.includes(imageKey));
       })
       .map(image => ({
@@ -646,7 +663,10 @@ export default function Page() {
         imageUrl: image.public_url || image.url || '',
       }))
       .filter(item => item.imageUrl)
-  );
+  ).sort((a, b) => selectedContentImages.indexOf(a.imageKey) - selectedContentImages.indexOf(b.imageKey));
+
+  const selectedContentImageCount = selectedPreviewProducts.length;
+  const contentImageCountValid = selectedContentImageCount >= currentContentFormat.minImages && selectedContentImageCount <= currentContentFormat.maxImages;
 
   function createContentFromSelectedProducts() {
     if (selectedProducts.length === 0) return;
@@ -1708,7 +1728,7 @@ export default function Page() {
                             display: 'block',
                             width: '100%',
                             height: '172px',
-                            objectFit: 'cover',
+                            objectFit: 'contain',
                             objectPosition: 'center',
                             borderRadius: '9px',
                             border: '1px solid rgba(190, 154, 87, 0.18)',
@@ -1752,7 +1772,7 @@ export default function Page() {
                             const selected = selectedContentImages.includes(imageKey);
                             const imageUrl = image.public_url || image.url || '';
                             return (
-                              <button key={imageKey} type="button" onClick={() => setSelectedContentImages(current => selected ? current.filter(key => key !== imageKey) : [...current, imageKey])} aria-label={selected ? 'Content-Foto abwählen' : 'Content-Foto auswählen'} style={{ padding: 0, borderRadius: '7px', overflow: 'hidden', cursor: 'pointer', border: selected ? '2px solid var(--gold)' : '1px solid rgba(190, 154, 87, 0.25)', background: '#fff', aspectRatio: '1 / 1', opacity: selected ? 1 : 0.3 }}>
+                              <button key={imageKey} type="button" onClick={() => setSelectedContentImages(current => selected ? current.filter(key => key !== imageKey) : [...current, imageKey])} aria-label={selected ? 'Content-Foto abwählen' : 'Content-Foto auswählen'} style={{ padding: 0, borderRadius: '7px', overflow: 'hidden', cursor: 'pointer', border: selected ? '2px solid var(--gold)' : '1px solid rgba(190, 154, 87, 0.25)', background: '#fff', aspectRatio: '1 / 1', opacity: selected ? 1 : 0.3, position: 'relative' }}>
                                 <img src={imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                               </button>
                             );
@@ -1761,11 +1781,11 @@ export default function Page() {
                       )}
                       <button
                         type="button"
-                        onClick={() =>
-                          setSelectedProducts(current =>
-                            current.filter(item => item.id !== product.id)
-                          )
-                        }
+                        onClick={() => {
+                          const productImageKeys = (product.product_images || []).map(image => getContentImageKey(image)).filter(Boolean);
+                          setSelectedProducts(current => current.filter(item => item.id !== product.id));
+                          setSelectedContentImages(current => current.filter(key => !productImageKeys.includes(key)));
+                        }}
                         style={{
                           marginTop: '7px',
                           width: '100%',
@@ -1795,6 +1815,28 @@ export default function Page() {
               </div>
             )}
 
+            {selectedPreviewProducts.length > 0 && (
+              <section style={{ marginTop: '16px', padding: '12px', border: '1px solid rgba(190, 161, 117, 0.35)', borderRadius: '12px', background: '#fff' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
+                  <strong style={{ fontSize: '13px', color: '#1F3A5F' }}>Content-Fotos · Reihenfolge</strong>
+                  <small style={{ color: '#6b7280' }}>{selectedPreviewProducts.length} Fotos ausgewählt</small>
+                </div>
+                <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
+                  {selectedPreviewProducts.map((item, index) => (
+                    <div key={item.imageKey} style={{ flex: '0 0 92px', position: 'relative' }}>
+                      <div style={{ position: 'relative', width: '92px', height: '112px', borderRadius: '9px', overflow: 'hidden', border: '2px solid var(--gold)', background: '#f6f2ea' }}>
+                        <img src={item.imageUrl} alt='' style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
+                        <span style={{ position: 'absolute', top: '5px', left: '5px', minWidth: '22px', height: '22px', padding: '0 5px', borderRadius: '11px', background: '#bea175', color: '#fff', display: 'grid', placeItems: 'center', fontSize: '11px', fontWeight: 700 }}>{index + 1}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '5px' }}>
+                        <button type='button' onClick={() => moveContentImage(item.imageKey, -1)} disabled={index === 0} aria-label='Foto nach links verschieben' style={{ width: '42px', border: '1px solid rgba(190,161,117,0.45)', borderRadius: '7px', background: '#fffaf2', cursor: index === 0 ? 'default' : 'pointer', opacity: index === 0 ? 0.35 : 1 }}>‹</button>
+                        <button type='button' onClick={() => moveContentImage(item.imageKey, 1)} disabled={index === selectedPreviewProducts.length - 1} aria-label='Foto nach rechts verschieben' style={{ width: '42px', border: '1px solid rgba(190,161,117,0.45)', borderRadius: '7px', background: '#fffaf2', cursor: index === selectedPreviewProducts.length - 1 ? 'default' : 'pointer', opacity: index === selectedPreviewProducts.length - 1 ? 0.35 : 1 }}>›</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
             {showProductPicker && (
               <div
                 role="dialog"
@@ -1911,7 +1953,7 @@ export default function Page() {
                                   display: 'block',
                                   width: '100%',
                                   height: '150px',
-                                  objectFit: 'cover',
+                                  objectFit: 'contain',
                                   objectPosition: 'center',
                                   background: '#f6f2ea',
                                 }}
@@ -2197,6 +2239,16 @@ export default function Page() {
                 </button>
               </div>
 
+              <div className="content-field">
+                <label style={{ fontFamily: 'Georgia, "Times New Roman", serif', color: '#1F3A5F', fontSize: '12px', fontWeight: 700 }}>Content-Art</label>
+                <select style={{ width: '100%', minHeight: '38px', padding: '7px 10px', borderRadius: '8px', border: '1px solid rgba(190, 161, 117, 0.55)', background: '#fffdf9', color: '#1F3A5F', fontFamily: 'Arial, Helvetica, sans-serif', fontSize: '12px', fontWeight: 600, outline: 'none' }} value={contentFormatByChannel[editChannel]} onChange={event => setContentFormatByChannel(current => ({ ...current, [editChannel]: event.target.value }))}>
+                  {socialMediaFormatguide[editChannel].map(format => <option key={format.id} value={format.id}>{format.label}</option>)}
+                </select>
+              </div>
+              <div style={{ marginTop: '8px', fontSize: '10px', color: 'var(--muted)', lineHeight: 1.5 }}>
+                <strong style={{ color: 'var(--navy)' }}>{editContentFormat.aspectRatio}</strong>{' · '}{editContentFormat.dimensions}{' · '}{editContentFormat.minImages === editContentFormat.maxImages ? `${editContentFormat.minImages} Foto` : `${editContentFormat.minImages}–${editContentFormat.maxImages} Fotos`}{editContentFormat.recommendedMin && editContentFormat.recommendedMax ? ` · empfohlen ${editContentFormat.recommendedMin}–${editContentFormat.recommendedMax}` : ''}
+              </div>
+              <div style={{ marginTop: '4px', fontSize: '9px', color: 'var(--muted)' }}>{SOCIAL_MEDIA_FORMATGUIDE_REFERENCE}</div>
               {editChannel === 'instagram' && (
                 <>
                   <div className="content-field">
@@ -2911,35 +2963,7 @@ export default function Page() {
                 className="content-demo-preview-image"
               />
             ) : selectedPreviewProducts.length > 0 ? (
-              <div
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  display: 'grid',
-                  gridTemplateColumns: `repeat(${Math.min(
-                    selectedPreviewProducts.length,
-                    3
-                  )}, 1fr)`,
-                  gap: '2px',
-                  overflow: 'hidden',
-                }}
-              >
-                {selectedPreviewProducts.slice(0, 3).map(({ product, imageUrl, imageKey }) => (
-                  <img
-                    key={imageKey}
-                    src={imageUrl}
-                    alt={product.brand || product.subcategory || 'Ausgewählter Artikel'}
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'contain',
-                      objectPosition: 'center',
-                      background: '#f6f2ea',
-                      display: 'block',
-                    }}
-                  />
-                ))}
-              </div>
+              <div style={{ position: 'relative', width: '100%', height: '100%' }}><div style={{ position: 'absolute', top: '8px', left: '50%', transform: 'translateX(-50%)', zIndex: 3, display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 7px', borderRadius: '14px', background: 'rgba(255,255,255,0.92)', boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}><button type='button' onClick={() => setPreviewSlideIndex(current => Math.max(0, current - 1))} disabled={previewSlideIndex <= 0} style={{ border: 0, background: 'transparent', cursor: previewSlideIndex <= 0 ? 'default' : 'pointer', fontSize: '16px' }}>‹</button><strong style={{ fontSize: '10px', color: '#1F3A5F' }}>{Math.min(previewSlideIndex, selectedPreviewProducts.length - 1) + 1} / {selectedPreviewProducts.length}</strong><button type='button' onClick={() => setPreviewSlideIndex(current => Math.min(selectedPreviewProducts.length - 1, current + 1))} disabled={previewSlideIndex >= selectedPreviewProducts.length - 1} style={{ border: 0, background: 'transparent', cursor: previewSlideIndex >= selectedPreviewProducts.length - 1 ? 'default' : 'pointer', fontSize: '16px' }}>›</button></div><img src={selectedPreviewProducts[Math.min(previewSlideIndex, selectedPreviewProducts.length - 1)].imageUrl} alt={selectedPreviewProducts[Math.min(previewSlideIndex, selectedPreviewProducts.length - 1)].product.brand || selectedPreviewProducts[Math.min(previewSlideIndex, selectedPreviewProducts.length - 1)].product.subcategory || 'Ausgewählter Artikel'} style={{ width: '100%', height: '100%', objectFit: 'contain', objectPosition: 'center', background: '#f6f2ea', display: 'block' }} /></div>
             ) : (
               <div
                 style={{
